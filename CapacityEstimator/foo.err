@@ -1,0 +1,8 @@
+matlabcontrol.MatlabConnectionException: MATLAB proxy could not be created in 180000 milliseconds
+	at matlabcontrol.RemoteMatlabProxyFactory.getProxy(RemoteMatlabProxyFactory.java:168)
+	at matlabcontrol.MatlabProxyFactory.getProxy(MatlabProxyFactory.java:81)
+	at com.webq.capest.findParams.findCapacity(findParams.java:20)
+	at com.webq.capest.CapacityEstimator.handleEndofTrainingPeriod(CapacityEstimator.java:434)
+	at com.webq.capest.CapacityManager$3.run(CapacityManager.java:64)
+	at java.util.TimerThread.mainLoop(Timer.java:555)
+	at java.util.TimerThread.run(Timer.java:505)

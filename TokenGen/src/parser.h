@@ -6,6 +6,8 @@ extern char ** ip_array;
 extern char * sending_port;
 extern char * tokenCheckIp;
 extern int no_of_proxy;
+extern int branch_factor;
+extern float gossip_interval;
 void parse_config_file(){
     int size = 1024, pos;
     int nl =0;
@@ -40,11 +42,15 @@ void parse_config_file(){
                     strcpy( sending_port, buffer );
                     break;
                 case 2:
-                    //no op
                     strcpy( tokenCheckIp, buffer );
-                    ;
                     break;
-                case 3:
+		case 3:
+		    branch_factor = atoi( buffer );
+		    break;
+		case 4:
+		    gossip_interval = atof( buffer );
+		    break;
+                case 5:
                     no_of_proxy = atoi( buffer );
                     break;
                 default:

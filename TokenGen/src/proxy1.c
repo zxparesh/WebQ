@@ -11,11 +11,16 @@ int listening_portno;
 char ** ip_array ;
 char * sending_port;
 int no_of_proxy;
-char delimChar='i';
 char * tokenCheckIp;
+int branch_factor;
+float gossip_interval;
 float peer_incomingRate[PEERS];
 float sum_peer_incoming_rate;
 double hardness[2];
+char delimChar='i';
+char timeDelChar='t';
+struct timeval tval;
+
 struct clientDetails{
     int sockfd;
     int ip1;
@@ -62,8 +67,8 @@ int readFromClient( struct clientDetails * cd ) {
         else if( *(char*)buffer == 'h' ){
             debug_printf( "data from capacity estimator in h %s", ((char*)buffer)+1 );
             // error here due to not handling buffer which is not decimal
-            hardness[0] = 1 // stod( ((char*)buffer)+1 );
-            hardness[1] = 1 // stod( strchr( ((char*)buffer)+2 , ' ')  );
+            hardness[0] = 1; // stod( ((char*)buffer)+1 );
+            hardness[1] = 1; // stod( strchr( ((char*)buffer)+2 , ' ')  );
             debug_printf( "hardness %f %f n", hardness[0], hardness[1] );
         }
         else if( *(char*)buffer == 'i' ){
@@ -214,12 +219,12 @@ void writeToServer(char *ip_array_n){
         // the time frequnecy value is important 
         // 0,5 seconds does not work where as 1s works 
         // should be same as frequency of clearing incoming
-        float sec= 1;       // time frequency in which to communicate
-        float sec_frac = 0.0;
+        float sec= 0.0;         // time frequency in which to communicate
+        float sec_frac = gossip_interval;  // convert sec to nsec
         debug_printf( "connected %s \n" , ip_array_n);
         struct timespec tim, rem;
         tim.tv_sec = sec;
-        tim.tv_nsec = sec_frac*1000000000;
+        tim.tv_nsec = sec_frac * 1000000000;    // convert fraction to nsec
         while( 1)
         {
             /* debug_printf( "writing to %s \n" , ip_array_n); */
@@ -228,12 +233,22 @@ void writeToServer(char *ip_array_n){
             /*     if ( visitor_count[j]!= 0 ) */
             /*         debug_printf( "(%d) vc %d\n", j, visitor_count[j] ); */
             /* } */
-            // sent incoming with 'i' indicator
+
+            // get system time in millisecond
+            gettimeofday(&tval, 0);
+            long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
+
+            // send time with 't' indicator
+            n = write(sockfd, &timeDelChar, sizeof(char));
+            if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
+            n = write(sockfd, &t_msec , sizeof(int) );
+            if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
+            // send incoming with 'i' indicator
             n = write(sockfd, &delimChar, sizeof(char));
             if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
             n = write(sockfd, &incoming , sizeof(int) );
             if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
-            // sent visitor queue
+            // send visitor queue
             n = write(sockfd, visitor_count , 1000 * sizeof(int) );
             if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
             // connect as a client;

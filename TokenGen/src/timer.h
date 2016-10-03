@@ -107,39 +107,7 @@ void log_data() {
     }
 
     push_back(&q, incoming, outgoing, failing);
-//  unsigned long avg_service_time = 0;
-
-
-//  if (outgoing > 0)
-//      avg_service_time = (unsigned long) total_service_time / outgoing;
-//  else
-//      avg_service_time = old_service_time;
-
-//  if (outgoing != 0 && avg_service_time != 0) {
-        //current_ratio=current_ratio+((float)(outgoing * 1000000.0)/avg_service_time);
-//      total_in_interval += outgoing;
-//      total_time_interval += ((float) avg_service_time * outgoing / 100000.0);
-//      total_load_interval += incoming;
-//      ctr = ctr + 1;
-
-//      if (ctr % SIZE == 0) {
-//          //current_ratio=total_in_interval/(total_time_interval/total_in_interval);  //  Goodput/Avg_Service_Time
-//          current_ratio =
-//                  (float) (total_in_interval * total_in_interval * 100)
-//                          / total_time_interval;  //  Goodput/Avg_Service_Time
-//          current_response_time = (total_time_interval / total_in_interval);
-//      }
-//  }
-//  /*if(avg_service_time>0){
-//   current_ratio=(float)(outgoing * 1000000.0)/avg_service_time;
-//   //if(prev_ratio == 0) prev_ratio = current_ratio;
-//   current_ratio = (1 * current_ratio) + (0 * prev_ratio);
-//   }
-//   else
-//   current_ratio=prev_ratio;*/
-//
-//  /*fprintf(log_ptr, "%lld %d %d %d %0.5f %ld %d %d %0.2f %d %d %d \n", (long long int) time(NULL),
-//   incoming, outgoing, failing, hostIncomingRate, avg_service_time, proxy2_in, capacity, current_ratio, ctr, flag);*/
+    
     time_t rawtime;
     char time_buf[256];
     time(&rawtime);
@@ -170,122 +138,6 @@ void log_data() {
         fflush(log_ptr);
     }
 
-//  /*if(avg_service_time>0){
-//   //    Impose penalty
-//   if(prev_ratio<current_ratio)
-//   capacity=capacity+1;
-//   else if(prev_ratio>current_ratio)
-//   capacity=(capacity<=1)?1:(capacity-1);
-//
-//   }*/
-//  if (ctr % SIZE == 0 && interval_flag == IGNORE) {
-//      interval_flag = 0;
-//      current_ratio = 0;  // for decreasing case (verify)
-//  } else if (flag == 1 && (ctr % SIZE) == 0 && outgoing != 0
-//          && wait_for == 0) {
-//      if (prev_ratio == 0)
-//          prev_ratio = current_ratio;
-//      if (prev_ratio > (FACTOR * current_ratio)) {
-//          flag = 0; // Capacity reached
-//          fprintf(log_ptr, "%lld %0.2f %0.2f %d Capacity Set\n",
-//                  (long long int) time(NULL), prev_ratio, current_ratio,
-//                  capacity);
-//          int iter = 0;
-//          for (iter = 0; iter < LIMIT; iter++) {
-//              //if(visitor_count[(current_time+iter)%LIMIT]<=(capacity-1)) {
-//              if (get_array(&visitor_count[(current_time + iter) % LIMIT])
-//                      <= (capacity / 2)) {
-//                  //visitor_count[(current_time+iter)%LIMIT]++;
-//                  break;
-//              }
-//          }
-//          if (iter == LIMIT) {
-//              fprintf(log_ptr, "Array full\n");
-//          }
-//          wait_for = iter + GRACE; //add grace time
-//          capacity -= 2; //Operating 1 unit below actual capacity          FOR_CONSTANT_CAPACITY
-//          capacity2 = capacity;
-//          capacity /= 2;          //FOR_CONSTANT_CAPACITY
-//          prev_ratio2 = prev_ratio;
-//          prev_response_time2 = prev_response_time;
-//      }
-//      /*else if(prev_ratio>=(1.5*current_ratio)){
-//       flag=0; // Capacity reached
-//       fprintf(log_ptr, "%lld %0.2f %0.2f %d Capacity Set\n", (long long int) time(NULL),
-//       prev_ratio, current_ratio, capacity);
-//       int iter=0;
-//       for(iter=0;iter<LIMIT;iter++) {
-//       if(visitor_count[(current_time+iter)%LIMIT]<=(capacity-1)) {
-//       //visitor_count[(current_time+iter)%LIMIT]++;
-//       break;
-//       }
-//       }
-//       wait_for=2*iter;
-//       capacity--;
-//       prev_ratio2=prev_ratio;
-//       }*/
-//      //else capacity=capacity+1;
-//      else if (capacity <= (total_load_interval / SIZE)) {
-//          capacity++; // Increase capacity only if capacity < offered load       FOR_CONSTANT_CAPACITY
-//      }
-//      //prev_ratio = current_ratio;
-//  } else if ((ctr % SIZE) == 0 && outgoing != 0 && wait_for == 0) { // Don't update capacity
-//      if (prev_ratio == 0)
-//          prev_ratio = current_ratio;
-//      if ((current_ratio * FACTOR) <= prev_ratio2
-//              && current_response_time >= (prev_response_time2 * FACTOR)) { // Capacity has decreased
-//              // Calculate waiting time and increment corresponding count in visitor_count (Make this more efficient if needed)
-//          int iter = 0;
-//          for (iter = 0; iter < LIMIT; iter++) {
-//              //if(visitor_count[(current_time+iter)%LIMIT]<=(capacity/2)) {
-//              if (get_array(&visitor_count[(current_time + iter) % LIMIT])
-//                      <= (capacity / 4)) {
-//                  //visitor_count[(current_time+iter)%LIMIT]++;
-//                  break;
-//              }
-//          }
-//          if (iter == LIMIT) {
-//              fprintf(log_ptr, "Array full2\n");
-//          }
-//          wait_for = iter + GRACE;      //add grace time
-//          capacity /= 4;          //FOR_CONSTANT_CAPACITY
-//          flag = 1;
-//          fprintf(log_ptr,
-//                  "%lld %0.2f %0.2f %d %d Capacity Unset(decrease)\n",
-//                  (long long int) time(NULL), prev_ratio, current_ratio,
-//                  capacity, wait_for);
-//      } else if (current_ratio >= (FACTOR * prev_ratio2)) { // Capacity has increased
-//          // Start incrementing capacity values
-//          flag = 1;
-//          fprintf(log_ptr, "%lld %0.2f %0.2f %d Capacity Unset(increase)\n",
-//                  (long long int) time(NULL), prev_ratio, current_ratio,
-//                  capacity);
-//      }
-//  } else if (wait_for > 0) {
-//      wait_for--;
-//  }
-
-//  if (ctr % SIZE == 0) {
-//      prev_ratio = current_ratio;
-//      prev_response_time = current_response_time;
-        //current_ratio=0;
-//      ctr = 0;
-//      total_in_interval = 0;
-//      total_time_interval = 0;
-//      total_load_interval = 0;
-//  }
-
-//  if (wait_for == 0 && capacity2 != -1) {
-//      //ctr=0;
-//      capacity = capacity2;         //FOR_CONSTANT_CAPACITY
-//      capacity2 = -1;
-//      interval_flag = IGNORE;
-//      //wait_for+=1;
-//  } else if (wait_for == 1 && flag == 1) {
-//      interval_flag = IGNORE;
-//      prev_ratio = 0;
-//  }
-
     //visitor_count[(current_time]=0;
     update_array(&visitor_count[current_time], 0);
     current_time = (current_time + 1) % LIMIT;
@@ -296,7 +148,7 @@ void log_data() {
     change_values(&outgoing, 0);
 
     //changes made to enable logging of avg wait time (following line is uncommented)
-//  old_service_time = avg_service_time;
+    //old_service_time = avg_service_time;
 
     //changes made to enable logging of avg wait time (following line is uncommented)
     change_float_values(&total_waiting_time, 0.0, 0);

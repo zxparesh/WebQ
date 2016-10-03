@@ -17,7 +17,7 @@ void parse_config_file(){
     int c;
     int i = 0;
     char *buffer = (char *)malloc(size);
-    ip_array = (char **) malloc( 5 * sizeof( char* ) ); // allocate space for 5 ip ) )
+    ip_array = (char **) malloc( 8 * sizeof( char* ) ); // allocate space for 5 ip
     sending_port = (char *) malloc( 8 * sizeof( char) );
     tokenCheckIp = (char *) malloc( 8 * sizeof( char) );
 

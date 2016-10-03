@@ -8,6 +8,9 @@ extern char * tokenCheckIp;
 extern int no_of_proxy;
 extern int branch_factor;
 extern float gossip_interval;
+extern int localId;
+extern std::unordered_map<char *, int> tgen_id;
+
 void parse_config_file(){
     int size = 1024, pos;
     int nl =0;
@@ -32,7 +35,6 @@ void parse_config_file(){
                 }
             }while(c != EOF && c != ' ');
             // proceed till the end of the line is reached
-            while( c!= EOF && c != '\n') c=fgetc(f);
             buffer[pos] = 0;
             nl ++;
             // line is now in buffer
@@ -54,15 +56,31 @@ void parse_config_file(){
                     no_of_proxy = atoi( buffer );
                     break;
                 default:
-                    /* if( i < no_of_proxy ) */
-                    /* { */
-                        ip_array[i] = (char*) malloc( 20 * sizeof(char) );
-                        strcpy( ip_array[i] , buffer );
-                        i++;
-                    /* } */
+                    ip_array[i] = (char*) malloc( 20 * sizeof(char) );
+                    strcpy( ip_array[i] , buffer );
+                    // now read the id for that ip
+                    pos = 0;
+                    do{ // read till space encountered
+                        c = fgetc(f);
+                        if(c != EOF && c!= ' ') buffer[pos++] = (char)c;
+                        if(pos >= size - 1) {
+                            // increase buffer length - leave room for 0
+                            size *=2;
+                            buffer = (char*)realloc(buffer, size);
+                        }
+                    }while(c != EOF && c != ' ');
+                    buffer[pos]=0;
+
+                    // map ip with its id
+                    tgen_id[ip_array[i]] = atoi( buffer );
+                    i++;
+                    // first entry indicates localIp, save its id
+                    if(nl == 6)
+                        localId = atoi( buffer );
                     break;
             }
-            /* handle_line(buffer); */
+            // proceed till the end of the line is reached
+            while( c!= EOF && c != '\n') c=fgetc(f);
         } while(c != EOF);
         fclose(f);
     }

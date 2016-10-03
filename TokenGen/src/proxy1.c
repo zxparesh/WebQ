@@ -7,6 +7,7 @@
 #include <arpa/inet.h>   //for inet_aton
 using namespace std;
 
+int ser_capacity=700;
 int listening_portno;
 char ** ip_array ;
 char * sending_port;
@@ -14,12 +15,15 @@ int no_of_proxy;
 char * tokenCheckIp;
 int branch_factor;
 float gossip_interval;
+//long timestamp[PEERS];  // timestamp for temp_peer_incomingRate and peer_v_count
 float peer_incomingRate[PEERS];
+//float temp_peer_incomingRate[PEERS];
 float sum_peer_incoming_rate;
+//float share_of_cap;
 double hardness[2];
 char delimChar='i';
-char timeDelChar='t';
-struct timeval tval;
+//char timeDelChar='t';
+//struct timeval tval;
 
 struct clientDetails{
     int sockfd;
@@ -29,8 +33,10 @@ struct clientDetails{
     int ip4;
     int port;
 };
-unordered_map<clientDetails *,int> ipToid;
-int connectedClients; // for asigining array indices to ipToid
+int localId;
+unordered_map<clientDetails *,int> ipToid;	// map ip+socket with id of that proxy
+unordered_map<char *, int> tgen_id;	// map each tgen with id
+int connectedClients;   // for asigining array indices to ipToid
 
 void* start_logging( void* ) {
     init_logger();
@@ -62,7 +68,7 @@ int readFromClient( struct clientDetails * cd ) {
         //if >20  - its peer_v_count from TokenGen
         if( *(char*)buffer == 'c' ){ // if content of buffer == c
             debug_printf( "data from capacity estimator in c %s", ((char*)buffer)+1 );
-            capacity = stoi((char*)buffer+1 );
+            capacity = ser_capacity;    //stoi((char*)buffer+1 );
         }
         else if( *(char*)buffer == 'h' ){
             debug_printf( "data from capacity estimator in h %s", ((char*)buffer)+1 );
@@ -172,9 +178,13 @@ void* create_server_socket(void*) {
         cd->ip2 = (int)((cli_addr.sin_addr.s_addr&0xFF00)>>8);
         cd->ip3 = (int)((cli_addr.sin_addr.s_addr&0xFF0000)>>16);
         cd->ip4 = (int)((cli_addr.sin_addr.s_addr&0xFF000000)>>24);
+        
+        //char ip_addr[INET_ADDRSTRLEN];
+        //inet_ntop(AF_INET, &(cli_addr.sin_addr), ip_addr, INET_ADDRSTRLEN);
         // add cd to a hash
         ipToid[ cd ] = connectedClients;
         connectedClients++;
+        //ipToid[ cd ] =  tgen_id[ip_addr];
         if(pthread_create(&threadId, NULL, ThreadWorker, (void *)cd) < 0)
         {
             debug_printf("Thread creation failed");
@@ -220,7 +230,7 @@ void writeToServer(char *ip_array_n){
         // 0,5 seconds does not work where as 1s works 
         // should be same as frequency of clearing incoming
         float sec= 0.0;         // time frequency in which to communicate
-        float sec_frac = gossip_interval;  // convert sec to nsec
+        float sec_frac = gossip_interval;
         debug_printf( "connected %s \n" , ip_array_n);
         struct timespec tim, rem;
         tim.tv_sec = sec;
@@ -235,14 +245,14 @@ void writeToServer(char *ip_array_n){
             /* } */
 
             // get system time in millisecond
-            gettimeofday(&tval, 0);
-            long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
+            //gettimeofday(&tval, 0);
+            //long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
 
             // send time with 't' indicator
-            n = write(sockfd, &timeDelChar, sizeof(char));
-            if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
-            n = write(sockfd, &t_msec , sizeof(int) );
-            if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
+            //n = write(sockfd, &timeDelChar, sizeof(char));
+            //if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
+            //n = write(sockfd, &t_msec , sizeof(int) );
+            //if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
             // send incoming with 'i' indicator
             n = write(sockfd, &delimChar, sizeof(char));
             if (n < 0) { debug_printf("ERROR writing to peer socket\n"); }
@@ -284,9 +294,10 @@ int main(void) {/*{{{*/
     for (counter = 0; counter < LIMIT; counter++)
     {
         visitor_count[counter] = 0;  // Initialize visitor_count
-        int i ;
-        for( i = 0 ; i < PEERS; i++ )
-        peer_v_count[i][counter] = 0; // replace with memset
+        for(int i = 0 ; i < PEERS; i++ )
+        {
+            peer_v_count[i][counter] = 0; // replace with memset
+        }
     }
 
     // parse the proxy.conf file to get the values 
@@ -298,7 +309,7 @@ int main(void) {/*{{{*/
     pthread_t make_connection;
     pthread_create(&make_connection, NULL, create_server_socket, (void*) NULL);
     pthread_t send_queue[PEERS];
-    for (counter = 0; counter < no_of_proxy ; counter++)
+    for (counter = 1; counter < no_of_proxy ; counter++)
     {
         pthread_create( &send_queue[ counter ] , NULL , queue_sender, (void *) ip_array[ counter ] );
     }

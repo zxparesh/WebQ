@@ -9,7 +9,7 @@
 #include "queue.h"
 /************* GLOBAL VARIABLES *********/
 #define LIMIT 1000 // Keep a track of 1000 seconds only
-#define PEERS 5 // max no of peers
+#define PEERS 8 // max no of peers
 #define SIZE 7 // interval size
 #define IGNORE 1
 //#define FACTOR 1.3//Our ratio (alpha)

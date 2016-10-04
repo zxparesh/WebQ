@@ -16,7 +16,7 @@ int no_of_proxy;
 char * tokenCheckIp;
 int branch_factor;
 float gossip_interval;
-long timestamp[PEERS];          // timestamp associated with peer_incomingRate and peer_v_count
+long timestamp[PEERS];          // timestamp associated with temp_peer_incomingRate and peer_v_count
 float peer_incomingRate[PEERS];         // global view of incoming rates
 float temp_peer_incomingRate[PEERS];    // store here till all rates received
 float sum_peer_incoming_rate;
@@ -57,7 +57,7 @@ int readFromClient( struct clientDetails * cd ) {
     
     while( ( bytesRead = read( clientSocketFD, buffer, bytes ) ) > 0)
     {
-        debug_printf( "bytes read: %d \n", bytesRead );
+        debug_printf( "bytes read: %d data: %s\n", bytesRead, ((char*)buffer)+1 );
         // the fist character indicates if the data is from CapacityEstimator or TokenGen
         // c - capacity data from CapacityEstimator
         // h - hardness data form CapacityEstimator
@@ -95,8 +95,9 @@ int readFromClient( struct clientDetails * cd ) {
             // debug...
             debug_printf("before receive: timestamp-incomingRate: ");
             for(int i=0; i<PEERS; i++) {
-                debug_printf("%ld-%f  ", timestamp[i], temp_peer_incomingRate[i]);
+                debug_printf("%ld-%.2f  ", timestamp[i], temp_peer_incomingRate[i]);
             }
+            debug_printf("\n");
             // update timestamp, imc_rate, peer_v_count if (received value is latest)
             // received timestamp is greater than existing timestamp for given proxy
             bool flag = true;    // incomingRate received from all proxies
@@ -122,6 +123,7 @@ int readFromClient( struct clientDetails * cd ) {
             for(int i=0; i<PEERS; i++) {
                 debug_printf("%ld-%f  ", timestamp[i], temp_peer_incomingRate[i]);
             }
+            debug_printf("\n");
         }
         else{
             debug_printf( "bytesRead in else %d \n", bytesRead );
@@ -213,7 +215,7 @@ void* create_server_socket(void*) {
             ipToid[ cd ] = no_of_proxy;
         else
             ipToid[ cd ] = tgen_id[ ip_addr ];
-        debug_printf("peer connected: %s id: %d", ip_addr, ipToid[ cd ]);
+        debug_printf("peer connected: %s id: %d \n", ip_addr, ipToid[ cd ]);
 
         // add cd to a hash
         //ipToid[ cd ] = connectedClients;
@@ -335,13 +337,13 @@ int main(void) {/*{{{*/
         visitor_count[counter] = 0;  // Initialize visitor_count
         int i ;
         for( i = 0 ; i < PEERS; i++ )
-        peer_v_count[i][counter] = 0; // replace with memset
+            peer_v_count[i][counter] = 0; // replace with memset
     }
 
     // parse the proxy.conf file to get the values 
     parse_config_file();
     
-    // debug pasred data
+    // debug parsed data
     debug_printf("config file read success!\n");
     debug_printf("%d\n", no_of_proxy);
     debug_printf("%d\n", branch_factor);
@@ -375,20 +377,23 @@ int main(void) {/*{{{*/
         int j;
         for( j=0; j<PEERS; j++)
         {
+            timestamp[j] = 0;
             peer_incomingRate[j] = 0; // TODO use memset
+            temp_peer_incomingRate[j] = 0;
         }
         // sum the times .. actual avg found later outside the loop
         for( j=0; j<PEERS; j++)
         {
             peer_incomingRate[j] = incoming_peers[j];
-            /* debug_printf( "%d %d %f\n", j, incoming_peers[j] , peer_incomingRate[j]); */
+            debug_printf( "inc_peers: %d peer_incomingRate: %d %f\n", j, incoming_peers[j] , peer_incomingRate[j]);
         }
         sum_peer_incoming_rate = 0;
         for( j=0; j<PEERS; j++)
         {
             sum_peer_incoming_rate += peer_incomingRate[j];
         }
-        /* debug_printf( "befor av-%.2f, sum-%.2f \n", hostIncomingRate, sum_peer_incoming_rate); */
+        debug_printf( "before! hostIncRate: %.2f, sumPeerIncRate: %.2f \n", hostIncomingRate, sum_peer_incoming_rate);
+
         int usedCapacity = 0;
         int peerUsedCapacity = 0;
         // reserve a min value of capacity (0.1) for each servers
@@ -404,7 +409,7 @@ int main(void) {/*{{{*/
         else if ( sum_peer_incoming_rate == 0 ){
             sum_peer_incoming_rate = percent * hostIncomingRate / ( 100 - percent );
         }
-        /* debug_printf( "after av-%.2f, sum-%.2f \n", hostIncomingRate, sum_peer_incoming_rate); */
+        debug_printf( "after! hostIncRate: %.2f, sumPeerIncRate: %.2f \n", hostIncomingRate, sum_peer_incoming_rate);
         share = capacity * hostIncomingRate/(hostIncomingRate + sum_peer_incoming_rate);
         // share found
         if ( share == 0 ) {
@@ -415,13 +420,14 @@ int main(void) {/*{{{*/
         int excess_used;
         for (iter = 0; iter < LIMIT; iter++) {
             // find the current used capacity for THIS "iter" time instant 
+            // current_time is updated by 1 in time.h
             peerUsedCapacity = 0;
             usedCapacity = get_array(&visitor_count[(current_time + iter) % LIMIT]);
             for( j=0; j<PEERS; j++)
             {
                 peerUsedCapacity += get_array( &peer_v_count[j][(current_time + iter) % LIMIT] );
             }
-            /* debug_printf( "uc-%d puc-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter); */
+            debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter);
             int total_usable_capacity = (share  - usedCapacity) ; // use a buffer here to compensate n/w delay!!!
             if( peerUsedCapacity > 0 ){
                 excess_used = (capacity - share)-peerUsedCapacity;
@@ -471,7 +477,7 @@ int main(void) {/*{{{*/
                 strcat( url_to_visit, "/test.php?limit=");
             }
             strcat(url_to_visit, (const char*) request_limit);
-            /* debug_printf("%d %d\n", time_to_wait, (currtime+iter)%LIMIT ) ; */
+            // debug_printf("time_to_wait : %d %d\n", time_to_wait, (currtime+iter)%LIMIT ) ;
             printf("Refresh: %d; url=%s&hash=%s&token=%s\n", time_to_wait,
                     url_to_visit,/*"aaa"*/getHash((unsigned char*) gt),
                     encrypt(gt));

@@ -57,22 +57,24 @@ int readFromClient( struct clientDetails * cd ) {
     
     while( ( bytesRead = read( clientSocketFD, buffer, bytes ) ) > 0)
     {
-        debug_printf( "bytes read: %d data: %s\n", bytesRead, ((char*)buffer)+1 );
+        debug_printf( "bytes read: %d data: %s from: %d.%d.%d.%d \n", bytesRead, ((char*)buffer)+1, cd->ip1, cd->ip2, cd->ip3, cd->ip4 );
         // the fist character indicates if the data is from CapacityEstimator or TokenGen
         // c - capacity data from CapacityEstimator
         // h - hardness data form CapacityEstimator
         // t - timestamp follwed by incoming rate and peer_v_count from peer TokenGen
         // check content of buffer == c or h or t
         if( *(char*)buffer == 'c' ){
-            debug_printf( "data from capacity estimator in c %s \n", ((char*)buffer)+1 );
+            bytesRead = read( clientSocketFD, buffer, 20*sizeof(char) );
+            debug_printf( "bytes: %d data from capacity estimator in c %s \n", bytesRead, (char*)buffer );
             // capacity = stoi((char*)buffer+1 );
             capacity = serv_capacity;
         }
         else if( *(char*)buffer == 'h' ){
-            debug_printf( "data from capacity estimator in h %s \n", ((char*)buffer)+1 );
+            bytesRead = read( clientSocketFD, buffer, 40*sizeof(char) );
+            debug_printf( "bytes: %d, data from capacity estimator in h %s \n", bytesRead, (char*)buffer );
             // error here due to not handling buffer which is not decimal
-            hardness[0] = stod( ((char*)buffer)+1 );
-            hardness[1] = stod( strchr( ((char*)buffer)+2 , ' ')  );
+            hardness[0] = stod( (char*)buffer );
+            hardness[1] = stod( strchr( (char*)buffer+1 , ' ')  );
             debug_printf( "hardness %f %f \n", hardness[0], hardness[1] );
         }
         else if( *(char*)buffer == 't' ){
@@ -82,15 +84,16 @@ int readFromClient( struct clientDetails * cd ) {
             long recv_timestamp[PEERS];
             float recv_peer_incomingRate[PEERS];
             int recv_peer_v_count[PEERS][LIMIT];
-
-            read( clientSocketFD, recv_timestamp, PEERS*sizeof(long));
-            debug_printf("timestamp recieved\n");
-            read (clientSocketFD, recv_peer_incomingRate, PEERS*sizeof(float));
-            debug_printf("peer_incomingRate recieved\n");
+            int bcount = 0;
+            bcount = read( clientSocketFD, recv_timestamp, PEERS*sizeof(long));
+            debug_printf("timestamp recieved, bytes: %d \n", bcount);
+            bcount = read (clientSocketFD, recv_peer_incomingRate, PEERS*sizeof(float));
+            debug_printf("peer_incomingRate recieved, bytes: %d \n", bcount);
+            bcount = 0;
             for(int i=0; i<PEERS; i++)
                 for(int j=0; j<LIMIT; j++)
-                    read (clientSocketFD, &recv_peer_v_count[i][j], sizeof(int));
-            debug_printf("peer_v_count recieved\n");
+                    bcount += read (clientSocketFD, &recv_peer_v_count[i][j], sizeof(int));
+            debug_printf("peer_v_count recieved, bytes: %d \n", bcount);
 
             // debug...
             debug_printf("before receive: timestamp-incomingRate: ");
@@ -121,7 +124,7 @@ int readFromClient( struct clientDetails * cd ) {
             // debug...
             debug_printf("after receive: timestamp-incomingRate: ");
             for(int i=0; i<PEERS; i++) {
-                debug_printf("%ld-%f  ", timestamp[i], temp_peer_incomingRate[i]);
+                debug_printf("%ld-%.2f  ", timestamp[i], temp_peer_incomingRate[i]);
             }
             debug_printf("\n");
         }
@@ -265,6 +268,7 @@ void writeToServer(char *ip_array_n){
         // time frequnecy value is important = gossip interval
         float sec= 0.0;       // time frequency in which to communicate
         float sec_frac = gossip_interval;
+        debug_printf("gossip_interval: %f \n", sec_frac);
         debug_printf( "write thread, connected: %s \n" , ip_array_n);
         struct timespec tim, rem;
         struct timespec t_tim, t_rem;
@@ -285,28 +289,33 @@ void writeToServer(char *ip_array_n){
 
             // send delimiter char 't' as indicator
             n = write(sockfd, &delimChar, sizeof(char));
+            debug_printf("delimiter sent, bytes: %d \n", n);
             if (n < 0) { debug_printf("ERROR writing delimChar to peer socket\n"); }
             // before sending arrays, update own value in that array (for localId)
             // send timestamp array
             timestamp[localId] = t_msec;
             n = write(sockfd, timestamp, PEERS*sizeof(long) );
+            debug_printf("timestamp sent, bytes: %d \n", n);
             if (n < 0) { debug_printf("ERROR writing timestamp to peer socket\n"); }
             // send incoming rate array
             temp_peer_incomingRate[localId] = incoming;
             n = write(sockfd, temp_peer_incomingRate , PEERS*sizeof(float) );
+            debug_printf("incomingrate sent, bytes: %d \n", n);
             if (n < 0) { debug_printf("ERROR writing incomingRate to peer socket\n"); }
             // sent visitor queue
+            n = 0;
             memcpy(peer_v_count[localId], visitor_count, LIMIT*sizeof(int));
             for(int i=0; i<PEERS; i++)
                 for(int j=0; j<LIMIT; j++)
-                    n = write(sockfd, &peer_v_count[i][j], sizeof(int) );
+                    n += write(sockfd, &peer_v_count[i][j], sizeof(int) );
+            debug_printf("visitor array sent, bytes: %d \n", n);
             if (n < 0) { debug_printf("ERROR writing visitor_array to peer socket\n"); }
-            debug_printf("data sent to %d\n", ip_array_n);
+            debug_printf("data sent to %s\n", ip_array_n);
             // connect as a client;
             nanosleep( &tim, &rem );
         }
     }else{
-        debug_printf( "ERROR connecting to a peer");
+        debug_printf( "ERROR connecting to a peer ");
         /* sleep(1); */
         /* exit(1); */
     }
@@ -358,8 +367,8 @@ int main(void) {/*{{{*/
     pthread_t make_connection;
     pthread_create(&make_connection, NULL, create_server_socket, (void*) NULL);
     pthread_t send_queue[PEERS];
-    for (counter = 0; counter < no_of_proxy ; counter++)
-    {
+    // first ip will be local machine ip, don't create thread for that (start from 1)
+    for (counter = 1; counter < no_of_proxy ; counter++) {
         pthread_create( &send_queue[ counter ] , NULL , queue_sender, (void *) ip_array[ counter ] );
     }
 

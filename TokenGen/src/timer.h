@@ -64,7 +64,7 @@ void start_timer();
 void init_logger() {
     if (log_ptr != NULL)
         return;
-    char log_file[] = "proxy1.log";     // at DocumentRoot in config file ( /usr/lib/cgi-bin/ )
+    char log_file[] = "proxy.log";     // at DocumentRoot in config file ( /usr/lib/cgi-bin/ )
     log_ptr = fopen(log_file, "a");
 
     if (log_ptr == NULL) {

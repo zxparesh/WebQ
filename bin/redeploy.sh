@@ -54,8 +54,8 @@ bash ~/WebQ/bin/killall.sh $username                  #kill all components
 for machine in $gens
 do
     printf " %d\n%s%43s" $? $marker "Cleaning up the log files at $machine" | tee -a $log_file
-    ssh root@$machine "cat /dev/null > /home/${username}/WebQ/TokenGen/src/proxy1.log"
-    ssh root@$machine "cat /dev/null > /usr/lib/cgi-bin/proxy1.log"
+    ssh root@$machine "cat /dev/null > /home/${username}/WebQ/TokenGen/src/proxy.log"
+    ssh root@$machine "cat /dev/null > /usr/lib/cgi-bin/proxy.log; chmod 666 /usr/lib/cgi-bin/proxy.log"
 #     ssh root@$machine "cat /dev/null > /home/${uesrname}/WebQ/CapacityEstimator/javapersecond.log"
 #     ssh root@$machine "cat /dev/null > /home/${username}/WebQ/CapacityEstimator/javadebug.log"
 done

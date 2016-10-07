@@ -51,7 +51,7 @@ int readFromClient( struct clientDetails * cd ) {
     int bytes = sizeof(char);   // read only char from client
     int bytesRead = 0;
     int*  buffer = (int *) malloc( bytes );
-    
+
     while( ( bytesRead = read( clientSocketFD, buffer, bytes ) ) > 0)
     {
         debug_printf( "bytes read: %d data: %s from: %s \n", bytesRead, ((char*)buffer)+1, cd->ip );
@@ -190,7 +190,7 @@ void* create_server_socket(void*) {
     clilen = sizeof(cli_addr);
     int option = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char*) &option,
-            sizeof(option)) < 0) {
+                sizeof(option)) < 0) {
         printf("setsockopt failed\n");
         close(sockfd);
         exit(2);
@@ -263,7 +263,6 @@ void writeToServer(char *ip_array_n){
         debug_printf("gossip_interval: %f localId: %d\n", sec_frac, localId);
         debug_printf( "write thread, connected: %s \n" , ip_array_n);
         struct timespec tim, rem;
-        struct timespec t_tim, t_rem;
         tim.tv_sec = sec;
         tim.tv_nsec = sec_frac*1000000000;
         while( 1)
@@ -271,7 +270,7 @@ void writeToServer(char *ip_array_n){
             // get current time in milliseconds
             gettimeofday(&tval, 0);
             long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000)
-;
+                ;
             debug_printf( "time: %ld writing to %s \n" , t_msec, ip_array_n);
             // debug print the visitor_count being written
             // for(int j =0 ; j < LIMIT ; j++ ){
@@ -352,7 +351,7 @@ int main(void) {/*{{{*/
 
     // parse the proxy.conf file to get the values 
     parse_config_file();
-    
+
     // debug parsed data
     debug_printf("config file read success!\n");
     debug_printf("%d\n", no_of_proxy);
@@ -372,7 +371,7 @@ int main(void) {/*{{{*/
     for (counter = 1; counter < no_of_proxy ; counter++) {
         pthread_create( &send_queue[ counter ] , NULL , queue_sender, (void *) ip_array[ counter ] );
     }
-    
+
     for(int i=0; i<PEERS; i++) {
         timestamp[i] = 0;
         temp_incoming_peers[i] = 0;

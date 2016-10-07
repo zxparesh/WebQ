@@ -46,12 +46,12 @@ void parse_config_file(){
                 case 2:
                     strcpy( tokenCheckIp, buffer );
                     break;
-		case 3:
-		    branch_factor = atoi( buffer );
-		    break;
-		case 4:
-		    gossip_interval = atof( buffer );
-		    break;
+                case 3:
+                    branch_factor = atoi( buffer );
+                    break;
+                case 4:
+                    gossip_interval = atof( buffer );
+                    break;
                 case 5:
                     no_of_proxy = atoi( buffer );
                     break;

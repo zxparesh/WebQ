@@ -53,10 +53,10 @@ extern double hardness[2];
 /*****************************************/
 
 /*****************************************
- Call init_logger first
- Then start_timer
- Finally call free_logger in the end
- Don't forget to compile with -levent
+  Call init_logger first
+  Then start_timer
+  Finally call free_logger in the end
+  Don't forget to compile with -levent
  *****************************************/
 
 void start_timer();
@@ -101,13 +101,13 @@ void log_data() {
         init_logger();
         if (log_ptr == NULL) {
             fprintf(stderr, "  Attempt to open file again failed\n");
-//          return;
+            //          return;
             no_log = 1;
         }
     }
 
     push_back(&q, incoming, outgoing, failing);
-    
+
     time_t rawtime;
     char time_buf[256];
     time(&rawtime);
@@ -134,7 +134,7 @@ void log_data() {
                 get_array(&visitor_count[current_time]),
                 share,
                 current_time//,
-                );
+               );
         fflush(log_ptr);
     }
 
@@ -152,17 +152,17 @@ void log_data() {
 
     //changes made to enable logging of avg wait time (following line is uncommented)
     change_float_values(&total_waiting_time, 0.0, 0);
-//  change_long_values(&total_service_time, 0);
-//  change_values(&failing, 0);
-//  change_values(&proxy2_in, 0);
+    //  change_long_values(&total_service_time, 0);
+    //  change_values(&failing, 0);
+    //  change_values(&proxy2_in, 0);
 }
 void timed_function(int fd, short event, void *arg) { // Called every second
     struct timespec tim, rem;
     tim.tv_sec = 1;
     tim.tv_nsec = 000000000;
     while( 1 ){
-    log_data();
-    nanosleep( &tim, &rem );
+        log_data();
+        nanosleep( &tim, &rem );
     }
     start_timer();
 }

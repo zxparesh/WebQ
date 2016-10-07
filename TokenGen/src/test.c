@@ -12,7 +12,16 @@ char * tokenCheckIp;
 int branch_factor;
 float gossip_interval;
 int localId;
-unordered_map<char *, int> ipToid;
+unordered_map<char *, int> tgen_id;
+
+struct clientDetails{
+    int sockfd;
+    int ip1;
+    int ip2;
+    int ip3;
+    int ip4;
+    int port;
+};
 
 int main(void) {
 
@@ -26,7 +35,20 @@ int main(void) {
     printf("%d\n", localId);
 
     for(int i=0; i<no_of_proxy; i++)
-        printf("%d : %s : %d\n", i, ip_array[i], ipToid[ip_array[i]]);
+        printf("%d : %s : %d\n", i, ip_array[i], tgen_id[ip_array[i]]);
+
+    struct clientDetails* cd;
+    cd = (clientDetails * ) malloc( sizeof( struct clientDetails ) );
+    cd->sockfd = 100;
+    cd->ip1=10;
+    cd->ip2=129;
+    cd->ip3=28;
+    cd->ip3=160;
+    cd->port=10000;
+
+    //char get_ip[]=itoa(cd->ip1,)+itoa(cd->ip2);
+    char get_ip[5];
+    itoa(cd->ip1, get_ip, 10);
 
     return 0;
 }

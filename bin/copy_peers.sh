@@ -17,7 +17,7 @@ then
 else
 	while read -r ip
 	do
-		echo -e "\n----- $ip -----"
+		echo -e "----- $ip -----"
 		scp $2 paresh@$ip:$2
 	done < $1
 fi

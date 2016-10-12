@@ -122,4 +122,25 @@ int get_array(int* variable) {   // n can be +1 or -1
     return temp;
 }
 
+pthread_mutex_t serialize_values5 = PTHREAD_MUTEX_INITIALIZER;
+void lock_mutex() {
+    pthread_mutex_lock(&serialize_values5);
+}
+void release_mutex() {
+    pthread_mutex_unlock(&serialize_values5);
+}
+
+int set_lock(bool* variable, bool value) {   // n can be +1 or -1
+    pthread_mutex_lock(&serialize_values5);
+    *variable = value;
+    pthread_mutex_unlock(&serialize_values5);
+}
+
+int get_lock(bool* variable) {   // n can be +1 or -1
+    pthread_mutex_lock(&serialize_values5);
+    int temp = *variable;
+    pthread_mutex_unlock(&serialize_values5);
+    return temp;
+}
+
 #endif

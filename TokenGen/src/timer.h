@@ -24,6 +24,7 @@ int served;
 extern int incoming = 0;
 extern int outgoing = 0;
 extern int failing = 0;
+extern int lastIncoming = 0;
 
 //changes made to enable logging of avg wait time (following two lines are uncommented)
 extern int share = 0;
@@ -144,6 +145,7 @@ void log_data() {
 
     //if (get_total_failing(&q) == 0) change_float_values(&alpha, -1*penalty, initial_alpha);
     hostIncomingRate = incoming;
+    lastIncoming = incoming;
     change_values(&incoming, 0);
     change_values(&outgoing, 0);
 

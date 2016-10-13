@@ -21,7 +21,6 @@ float sum_peer_incoming_rate;
 double hardness[2];
 char delimChar='t';
 struct timeval tval;
-bool lock[PEERS];       // for blocking write thread to simulate branch factor
 
 struct clientDetails{
     int sockfd;
@@ -62,7 +61,7 @@ int readFromClient( struct clientDetails * cd ) {
         if( *(char*)buffer == 'c' ){
             bytesRead = read( clientSocketFD, buffer, 20*sizeof(char) );
             debug_printf( "bytes: %d data from capacity estimator in c %s \n", bytesRead, (char*)buffer );
-            capacity = stoi((char*)buffer+1 );
+            capacity = stoi((char*)buffer);
             debug_printf("capacity: %d\n", capacity);
         }
         else if( *(char*)buffer == 'h' ){
@@ -266,56 +265,52 @@ void writeToServer(char *ip_array_n){
         tim.tv_nsec = sec_frac*1000000000;
         while( 1)
         {
-            while(!get_lock(&lock[tgen_id[ip_array_n]]))
-            {
-                // get current time in milliseconds
-                gettimeofday(&tval, 0);
-                long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000)
-                    ;
-                debug_printf( "time: %ld writing to %s \n" , t_msec, ip_array_n);
-                // debug print the visitor_count being written
-                // for(int j =0 ; j < LIMIT ; j++ ){
-                //     if ( visitor_count[j]!= 0 )
-                //         debug_printf( "(%d) vc %d\n", j, visitor_count[j] );
-                // }
+            // get current time in milliseconds
+            gettimeofday(&tval, 0);
+            long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000)
+                ;
+            debug_printf( "time: %ld writing to %s \n" , t_msec, ip_array_n);
+            // debug print the visitor_count being written
+            // for(int j =0 ; j < LIMIT ; j++ ){
+            //     if ( visitor_count[j]!= 0 )
+            //         debug_printf( "(%d) vc %d\n", j, visitor_count[j] );
+            // }
 
-                // send delimiter char 't' as indicator
-                n = write(sockfd, &delimChar, sizeof(char));
-                debug_printf("delimiter sent, bytes: %d \n", n);
-                if (n < 0) { debug_printf("ERROR writing delimChar to peer socket\n"); }
-                // before sending arrays, update own value in that array (for localId)
+            // send delimiter char 't' as indicator
+            n = write(sockfd, &delimChar, sizeof(char));
+            debug_printf("delimiter sent, bytes: %d \n", n);
+            if (n < 0) { debug_printf("ERROR writing delimChar to peer socket\n"); }
+            // before sending arrays, update own value in that array (for localId)
 
-                // send timestamp array
-                timestamp[localId] = t_msec;
-                n = write(sockfd, timestamp, PEERS*sizeof(long) );
-                debug_printf("timestamp sent, bytes: %d  ", n);
-                for(int i=0; i<PEERS; i++)
-                    debug_printf("%ld ", timestamp[i]);
-                debug_printf("\n");
-                if (n < 0) { debug_printf("ERROR writing timestamp to peer socket\n"); }
+            // send timestamp array
+            timestamp[localId] = t_msec;
+            n = write(sockfd, timestamp, PEERS*sizeof(long) );
+            debug_printf("timestamp sent, bytes: %d  ", n);
+            for(int i=0; i<PEERS; i++)
+                debug_printf("%ld ", timestamp[i]);
+            debug_printf("\n");
+            if (n < 0) { debug_printf("ERROR writing timestamp to peer socket\n"); }
 
-                // send incoming rate array
-                temp_incoming_peers[localId] = lastIncoming;
-                n = write(sockfd, temp_incoming_peers , PEERS*sizeof(int) );
-                debug_printf("incomingrate sent, bytes: %d  ", n);
-                for(int i=0; i<PEERS; i++)
-                    debug_printf("%d ", temp_incoming_peers[i]);
-                debug_printf("\n");
-                if (n < 0) { debug_printf("ERROR writing incoming_rate to peer socket\n"); }
+            // send incoming rate array
+            temp_incoming_peers[localId] = lastIncoming;
+            n = write(sockfd, temp_incoming_peers , PEERS*sizeof(int) );
+            debug_printf("incomingrate sent, bytes: %d  ", n);
+            for(int i=0; i<PEERS; i++)
+                debug_printf("%d ", temp_incoming_peers[i]);
+            debug_printf("\n");
+            if (n < 0) { debug_printf("ERROR writing incoming_rate to peer socket\n"); }
 
-                // sent visitor queue
-                n = 0;
-                memcpy(peer_v_count[localId], visitor_count, LIMIT*sizeof(int));
-                for(int i=0; i<PEERS; i++)
-                    for(int j=0; j<LIMIT; j++)
-                        n += write(sockfd, &peer_v_count[i][j], sizeof(int) );
-                debug_printf("visitor array sent, bytes: %d \n", n);
-                if (n < 0) { debug_printf("ERROR writing visitor_array to peer socket\n"); }
-                debug_printf("data sent to %s\n", ip_array_n);
-                // connect as a client;
-                set_lock(&lock[tgen_id[ip_array_n]], true);     // set lock once again till next time selected
-                nanosleep( &tim, &rem );
-            }
+            // sent visitor queue
+            n = 0;
+            memcpy(peer_v_count[localId], visitor_count, LIMIT*sizeof(int));
+            for(int i=0; i<PEERS; i++)
+                for(int j=0; j<LIMIT; j++)
+                    n += write(sockfd, &peer_v_count[i][j], sizeof(int) );
+            debug_printf("visitor array sent, bytes: %d \n", n);
+            if (n < 0) { debug_printf("ERROR writing visitor_array to peer socket\n"); }
+            debug_printf("data sent to %s\n", ip_array_n);
+            // connect as a client;
+            nanosleep( &tim, &rem );
         }
     }else{
         debug_printf( "ERROR connecting to a peer ");
@@ -330,50 +325,6 @@ void* queue_sender( void * args) {/*{{{*/
     sleep(1);
     writeToServer( (char *) args  );
 }/*}}}*/
-
-void* start_controller(void*)
-{
-    sleep(1);
-    float sec = 0.0;
-    float sec_frac = gossip_interval;
-    struct timespec tim, rem;
-    tim.tv_sec = sec;
-    tim.tv_nsec = sec_frac*1000000000;
-    while(1)
-    {   
-        // get current time in milliseconds
-        gettimeofday(&tval, 0); 
-        long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
-        int rand_peers[branch_factor];
-        lock_mutex();
-        memset(lock, true, PEERS*sizeof(bool));
-        memset(rand_peers, localId, branch_factor*sizeof(int));
-        for(int i=0; i<branch_factor; i++) {
-            int r=rand() % no_of_proxy;
-            bool flag=false;
-            //printf("  +%d+  ", r);
-            for(int j=0; j<=i; j++) {
-                if(r==rand_peers[j]) {
-                    flag=true;
-                    break;
-                }
-            }
-            if(!flag) {
-                rand_peers[i]=r;
-                lock[r]=false;
-            }
-            else
-                i--;
-        }
-        release_mutex();
-        printf( "  time: %ld ~~~controller~~~ peers: ", t_msec);
-        for(int i=0; i<branch_factor; i++)
-            printf("%d ", rand_peers[i]);
-        printf("\n");
-        nanosleep( &tim, &rem );
-    }   
-}
-
 
 int main(void) {/*{{{*/
     incoming = 0;
@@ -412,8 +363,6 @@ int main(void) {/*{{{*/
 
     pthread_t timer_log;
     pthread_create( &timer_log, NULL, start_logging, (void*) NULL);
-    pthread_t control_thread;
-    pthread_create( &control_thread, NULL, start_controller, NULL );    
     pthread_t make_connection;
     pthread_create( &make_connection, NULL, create_server_socket, (void*) NULL);
     pthread_t send_queue[PEERS];
@@ -425,7 +374,6 @@ int main(void) {/*{{{*/
     for(int i=0; i<PEERS; i++) {
         timestamp[i] = 0;
         temp_incoming_peers[i] = 0;
-        lock[i] = true;
     }
 
     while (FCGI_Accept() >= 0) {
@@ -447,7 +395,7 @@ int main(void) {/*{{{*/
         for( j=0; j<PEERS; j++)
         {
             peer_incomingRate[j] = incoming_peers[j];
-            // debug_printf( "%d inc_peers: %d peer_incRate: %f \n", j, incoming_peers[j] , peer_incomingRate[j]);
+            debug_printf( "%d inc_peers: %d peer_incRate: %f \n", j, incoming_peers[j] , peer_incomingRate[j]);
         }
         sum_peer_incoming_rate = 0;
         for( j=0; j<PEERS; j++)
@@ -478,7 +426,7 @@ int main(void) {/*{{{*/
             caseof="case: H1 SP0";
         }
         debug_printf( "after! hostIncRate: %.2f, sumPeerIncRate: %.2f %s \n", hostIncomingRate, sum_peer_incoming_rate, caseof);
-        share = capacity * hostIncomingRate/(hostIncomingRate + sum_peer_incoming_rate);
+        share = capacity * hostIncomingRate/sum_peer_incoming_rate;     // changed by me
         // share found
         if ( share == 0 ) {
             // share can never be 0
@@ -495,7 +443,7 @@ int main(void) {/*{{{*/
             {
                 peerUsedCapacity += get_array( &peer_v_count[j][(current_time + iter) % LIMIT] );
             }
-            // debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter);
+            debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter);
             int total_usable_capacity = (share  - usedCapacity) ; // use a buffer here to compensate n/w delay!!!
             if( peerUsedCapacity > 0 ){
                 excess_used = (capacity - share)-peerUsedCapacity;

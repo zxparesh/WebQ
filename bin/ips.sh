@@ -7,6 +7,6 @@ log_file=large_log.log
 
 tokencheck="10.129.26.133"
 tokengen1="10.129.41.67"
-capacityEstimator="10.129.28.160"
-tokengen2="10.129.28.160"
+capacityEstimator="10.129.28.150"
+tokengen2="10.129.28.150"
 

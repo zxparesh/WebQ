@@ -83,13 +83,13 @@ int readFromClient( struct clientDetails * cd ) {
             int bcount = 0;
 
             bcount = read( clientSocketFD, recv_timestamp, PEERS*sizeof(long));
-            debug_printf("timestamp recieved, bytes: %d  ", bcount);
+            debug_printf("timestamp received, bytes: %d  ", bcount);
             for(int i=0; i<PEERS; i++)
                 debug_printf("%ld ", recv_timestamp[i]);
             debug_printf("\n");
 
             bcount = read (clientSocketFD, recv_incoming_peers, PEERS*sizeof(int));
-            debug_printf("peer_incomingRate recieved, bytes: %d  ", bcount);
+            debug_printf("peer_incomingRate received, bytes: %d  ", bcount);
             for(int i=0; i<PEERS; i++)
                 debug_printf("%d ", recv_incoming_peers[i]);
             debug_printf("\n");
@@ -98,7 +98,7 @@ int readFromClient( struct clientDetails * cd ) {
             for(int i=0; i<PEERS; i++)
                 for(int j=0; j<LIMIT; j++)
                     bcount += read (clientSocketFD, &recv_peer_v_count[i][j], sizeof(int));
-            debug_printf("peer_v_count recieved, bytes: %d \n", bcount);
+            debug_printf("peer_v_count received, bytes: %d \n", bcount);
 
             // debug...
             debug_printf("before receive: timestamp-temp_inc_peers: ");
@@ -118,7 +118,7 @@ int readFromClient( struct clientDetails * cd ) {
                     }
                     // if incoming rate from any proxy not received then set flag to false
                     if(temp_incoming_peers[i]==0 && i<no_of_proxy) {
-                        debug_printf("incomingRate from %d not recieced!\n", i);
+                        debug_printf("incomingRate from %d not received!\n", i);
                         flag=false;
                     }
                 }
@@ -133,7 +133,7 @@ int readFromClient( struct clientDetails * cd ) {
             if(flag) {
                 memcpy(incoming_peers, temp_incoming_peers, PEERS*sizeof(int));
                 memset(temp_incoming_peers, 0, PEERS*sizeof(int));
-                debug_printf("all incomingRate recieved! copied to imcoming_peers!\n");
+                debug_printf("all incomingRate received! copied to imcoming_peers!\n");
             }
         }
         else{
@@ -142,7 +142,7 @@ int readFromClient( struct clientDetails * cd ) {
         // Exit once the communication is over.
     }
     debug_printf( "gonna shutdown read thread \n");
-    // 2- shutdown both send and recieve functions
+    // 2- shutdown both send and receive functions
     return close( clientSocketFD );
 }
 
@@ -548,7 +548,7 @@ int main(void) {/*{{{*/
                 strcat( url_to_visit, "/test.php?limit=");
             }
             strcat(url_to_visit, (const char*) request_limit);
-            debug_printf("time_to_wait : %d %d\n", time_to_wait, (currtime+iter)%LIMIT ) ;
+            // debug_printf("time_to_wait : %d %d\n", time_to_wait, (currtime+iter)%LIMIT ) ;
             printf("Refresh: %d; url=%s&hash=%s&token=%s\n", time_to_wait,
                     url_to_visit,/*"aaa"*/getHash((unsigned char*) gt),
                     encrypt(gt));

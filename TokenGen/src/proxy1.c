@@ -83,7 +83,7 @@ int readFromClient( struct clientDetails * cd ) {
             int bcount = 0;
 
             bcount = read( clientSocketFD, recv_timestamp, PEERS*sizeof(long));
-            debug_printf("timestamp received, bytes: %d  ", bcount);
+            debug_printf("timestamp received, bytes: %d  ", bcount+1);
             for(int i=0; i<PEERS; i++)
                 debug_printf("%ld ", recv_timestamp[i]);
             debug_printf("\n");

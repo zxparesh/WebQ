@@ -10,7 +10,7 @@ using namespace std;
 int listening_portno;
 char ** ip_array ;
 char * sending_port;
-int no_of_proxy;
+int no_of_proxy=PEERS;
 char * tokenCheckIp;
 int branch_factor;
 float gossip_interval;
@@ -75,27 +75,27 @@ int readFromClient( struct clientDetails * cd ) {
         }
         else if( *(char*)buffer == 't' ){
             // if t is sent, timestamp follwed by incoming and peer_v_count will be sent ; read all that
-            // debug_printf( "read from: %s id: %d\n", cd->ip, ipToid[cd] );
+            debug_printf( "read from: %s id: %d\n", cd->ip, ipToid[cd] );
             // store all 3 received arrays
             long recv_timestamp[PEERS];
             int recv_incoming_peers[PEERS];
             int recv_peer_v_count[PEERS][LIMIT];
             int bcount = 0;
 
-            bcount = read( clientSocketFD, recv_timestamp, PEERS*sizeof(long));
+            bcount = read( clientSocketFD, recv_timestamp, no_of_proxy*sizeof(long));
             debug_printf("timestamp received, bytes: %d  ", bcount+1);
             for(int i=0; i<PEERS; i++)
                 debug_printf("%ld ", recv_timestamp[i]);
             debug_printf("\n");
 
-            bcount = read (clientSocketFD, recv_incoming_peers, PEERS*sizeof(int));
+            bcount = read (clientSocketFD, recv_incoming_peers, no_of_proxy*sizeof(int));
             debug_printf("peer_incomingRate received, bytes: %d  ", bcount);
             for(int i=0; i<PEERS; i++)
                 debug_printf("%d ", recv_incoming_peers[i]);
             debug_printf("\n");
 
             bcount = 0;
-            for(int i=0; i<PEERS; i++)
+            for(int i=0; i<no_of_proxy; i++)
                 for(int j=0; j<LIMIT; j++)
                     bcount += read (clientSocketFD, &recv_peer_v_count[i][j], sizeof(int));
             debug_printf("peer_v_count received, bytes: %d \n", bcount);
@@ -108,7 +108,7 @@ int readFromClient( struct clientDetails * cd ) {
             // update timestamp, imc_rate, peer_v_count if (received value is latest)
             // received timestamp is greater than existing timestamp for given proxy
             bool flag = true;    // incomingRate received from all proxies
-            for(int i=0; i<PEERS; i++) {        // no need for chackeing entries >=no_of_proxy
+            for(int i=0; i<no_of_proxy; i++) {        // no need for chackeing entries >=no_of_proxy
                 if(i!=localId) {                // no need to updaet own info from others!!
                     if(recv_timestamp[i] > timestamp[i]) {
                         debug_printf("latest info from peer %d\n", i);
@@ -117,7 +117,7 @@ int readFromClient( struct clientDetails * cd ) {
                         memcpy(peer_v_count[i], recv_peer_v_count[i], LIMIT*sizeof(int));
                     }
                     // if incoming rate from any proxy not received then set flag to false
-                    if(temp_incoming_peers[i]==0 && i<no_of_proxy) {
+                    if(temp_incoming_peers[i]==0) {
                         debug_printf("incomingRate from %d not received!\n", i);
                         flag=false;
                     }
@@ -284,7 +284,7 @@ void writeToServer(char *ip_array_n){
 
                 // send timestamp array
                 timestamp[localId] = t_msec;
-                n = write(sockfd, timestamp, PEERS*sizeof(long) );
+                n = write(sockfd, timestamp, no_of_proxy*sizeof(long) );
                 debug_printf("timestamp sent, bytes: %d  ", n);
                 for(int i=0; i<PEERS; i++)
                     debug_printf("%ld ", timestamp[i]);
@@ -293,7 +293,7 @@ void writeToServer(char *ip_array_n){
 
                 // send incoming rate array
                 temp_incoming_peers[localId] = lastIncoming;
-                n = write(sockfd, temp_incoming_peers , PEERS*sizeof(int) );
+                n = write(sockfd, temp_incoming_peers , no_of_proxy*sizeof(int) );
                 debug_printf("incomingrate sent, bytes: %d  ", n);
                 for(int i=0; i<PEERS; i++)
                     debug_printf("%d ", temp_incoming_peers[i]);
@@ -303,7 +303,7 @@ void writeToServer(char *ip_array_n){
                 // sent visitor queue
                 n = 0;
                 memcpy(peer_v_count[localId], visitor_count, LIMIT*sizeof(int));
-                for(int i=0; i<PEERS; i++)
+                for(int i=0; i<no_of_proxy; i++)
                     for(int j=0; j<LIMIT; j++)
                         n += write(sockfd, &peer_v_count[i][j], sizeof(int) );
                 debug_printf("visitor array sent, bytes: %d \n", n);

@@ -4,40 +4,36 @@
 cd ~/WebQ/bin
 source ~/WebQ/bin/ips.sh
 
-# get command line arguments {{{
-if [ -z "$1" ];
+# get command line arguments
+if [ $# -lt 2 ];
 then
     echo "input username ./redeploy.sh <username> <no_of_tokengen>"
     exit
-else
-    username=$1
-    echo "username : ${username}"
 fi
-# }}}
+
+username=$1
+echo "username : ${username}"
 
 # {{{ put the number of tokengens
-if [ -z "$2" ];
-then
-    gens="${tokengen1}"
-else
-    case $2 in
-        1)
-            gens="${tokengen2}"
-            ;;
-        2)
-            gens="${tokengen2} ${tokengen1} "
-            ;;
-        3)
-            gens="${tokengen2} ${tokengen1} 10.129.26.133"
-            ;;
-        4)
-            gens="${tokengen2} ${tokengen1} 10.129.26.133 10.129.28.87"
-            ;;
-        *)
-            gens="${tokengen2}"
-            ;;
-    esac
-fi
+case $2 in
+    1)
+        gens="${tokengen2}"
+        ;;
+    2)
+        gens="${tokengen2} ${tokengen1} "
+        ;;
+    [0-9]*)
+        gens="${tokengen2} ${tokengen1} "
+        for i in $(seq 3 $2); do
+            ip="tokengen"$i
+            gens=$gens${!ip}" "
+        done
+        ;;
+    *)
+        gens="${tokengen2}"
+        ;;
+esac
+
 echo "gens = $gens"
 echo "log file = `pwd` $log_file"
 export gens

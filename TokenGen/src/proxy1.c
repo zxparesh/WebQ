@@ -4,7 +4,7 @@
 #include "timer.h"
 #include "parser.h"
 #include <netinet/tcp.h>
-#include <arpa/inet.h>   //for inet_aton
+#include <arpa/inet.h>
 using namespace std;
 
 int listening_portno;
@@ -46,10 +46,10 @@ int readFromClient( struct clientDetails * cd ) {
      * Two types of clients are:
      *  1 Capacity Estimator
      *  2 other peer proxy */
-    // make buffer to store the data from client
+    /* make buffer to store the data from client */
     int clientSocketFD = cd->sockfd;
-    debug_printf( "read thread successfully created! thread id: %d ip:%s \n", clientSocketFD, cd->ip );
-    int bytes = sizeof(char);   // read only char from client
+    debug_printf( "read thread created! socket id: %d ip: %s \n", clientSocketFD, cd->ip );
+    int bytes = sizeof(char);   /* read only char from client */
     int bytesRead = 0;
     int rcount = 0;
     int*  buffer = (int *) malloc( bytes );
@@ -57,11 +57,11 @@ int readFromClient( struct clientDetails * cd ) {
     while( ( bytesRead = read( clientSocketFD, buffer, bytes ) ) > 0)
     {
         // debug_printf( "bytes read: %d data: %s from: %s \n", bytesRead, ((char*)buffer), cd->ip );
-        // the fist character indicates if the data is from CapacityEstimator or TokenGen
-        // c - capacity data from CapacityEstimator
-        // h - hardness data form CapacityEstimator
-        // t - timestamp follwed by incoming rate and peer_v_count from peer TokenGen
-        // check content of buffer == c or h or t
+        /* the fist character indicates if the data is from CapacityEstimator or TokenGen
+           c - capacity data from CapacityEstimator
+           h - hardness data form CapacityEstimator
+           t - timestamp follwed by incoming rate and peer_v_count from peer TokenGen */
+        /* check content of buffer == c or h or t */
         if( *(char*)buffer == 'c' ){
             bytesRead = read( clientSocketFD, buffer, 20*sizeof(char) );
             debug_printf( "bytes: %d data from capacity estimator in c %s \n", bytesRead, (char*)buffer );
@@ -71,32 +71,33 @@ int readFromClient( struct clientDetails * cd ) {
         else if( *(char*)buffer == 'h' ){
             bytesRead = read( clientSocketFD, buffer, 40*sizeof(char) );
             debug_printf( "bytes: %d, data from capacity estimator in h %s \n", bytesRead, (char*)buffer );
-            // error here due to not handling buffer which is not decimal
+            /* error here due to not handling buffer which is not decimal */
             hardness[0] = stod( (char*)buffer );
             hardness[1] = stod( strchr( (char*)buffer+1 , ' ')  );
             debug_printf( "hardness %f %f \n", hardness[0], hardness[1] );
         }
         else if( *(char*)buffer == 't' ){
-            // if t is sent, timestamp follwed by incoming and peer_v_count will be sent ; read all that
+            /* if t is sent, timestamp follwed by incoming and peer_v_count will be sent ; read all that */
             debug_printf( "read from: %s id: %d\n", cd->ip, ipToid[cd] );
-            // store all 3 received arrays
+            /* store all 3 received arrays */
             long recv_timestamp[PEERS];
             int recv_incoming_peers[PEERS];
             int recv_peer_v_count[PEERS][LIMIT];
             int bcount = 0;
 
-            // reset receiving timestamp array
+            /* reset receiving timestamp array */
             memset(recv_timestamp, 0, PEERS*sizeof(long));
 
-            // read entire incoming_rate array
+            /* read entire incoming_rate array */
             bcount = read (clientSocketFD, recv_incoming_peers, no_of_proxy*sizeof(int));
+            /*** this debug statement required for calculating data bytes exchaged ***/
             debug_printf("peer_incomingRate received, bytes: %d  ", bcount);
             for(int i=0; i<PEERS; i++)
                 debug_printf("%d ", recv_incoming_peers[i]);
             debug_printf("\n");
 
-            // get ids of tokengens to receive information
-            // recv_incoming_peers != -1 means that peer has information
+            /* get ids of tokengens to receive information
+               recv_incoming_peers != -1 means that peer has information */
             rcount = 0;
             for(int i=0; i<no_of_proxy; i++) {
                 if(recv_incoming_peers[i]!=-1)
@@ -107,52 +108,53 @@ int readFromClient( struct clientDetails * cd ) {
                 debug_printf(" %d",r_id[i]);
             debug_printf("\n");
 
-            // receive timestamp array for ids in r_id
+            /* receive timestamp array for ids in r_id */
             bcount = 0;
             for(int i=0; i<rcount; i++)
                 bcount += read( clientSocketFD, &recv_timestamp[r_id[i]], sizeof(long));
+            /*** this debug statement required for calculating data bytes exchaged ***/
             debug_printf("timestamp received, bytes: %d  ", bcount+1);
             for(int i=0; i<PEERS; i++)
                 debug_printf("%ld ", recv_timestamp[i]);
             debug_printf("\n");
 
-            // receive waittime array for ids in r_id
+            /* receive waittime array for ids in r_id */
             bcount = 0;
             for(int i=0; i<rcount; i++)
                 for(int j=0; j<LIMIT; j++)
                     bcount += read (clientSocketFD, &recv_peer_v_count[r_id[i]][j], sizeof(int));
+            /*** this debug statement required for calculating data bytes exchaged ***/
             debug_printf("peer_v_count received, bytes: %d \n", bcount);
 
-            // debug...
             debug_printf("before receive: timestamp-temp_inc_peers: ");
             for(int i=0; i<PEERS; i++)
                 debug_printf("%ld-%d  ", timestamp[i], temp_incoming_peers[i]);
             debug_printf("\n");
-            // update timestamp, inc_rate, peer_v_count if (received value is latest)
-            // received timestamp is greater than existing timestamp for given proxy
-            bool flag = true;    // incomingRate received from all proxies
-            for(int i=0; i<no_of_proxy; i++) {        // no need for chackeing entries >=no_of_proxy
-                if(i!=localId) {                // no need to updaet own info from others!!
+            /* update timestamp, inc_rate, peer_v_count if (received value is latest)
+               received timestamp is greater than existing timestamp for given proxy */
+            bool flag = true;    /* incomingRate received from all proxies */
+            for(int i=0; i<no_of_proxy; i++) {
+                if(i!=localId) {                /* no need to updaet own info from others!! */
                     if(recv_timestamp[i] > timestamp[i]) {
-                        debug_printf("latest info from peer %d\n", i);
+                        // debug_printf("latest info from peer %d\n", i);
                         timestamp[i] = recv_timestamp[i];
                         temp_incoming_peers[i] = recv_incoming_peers[i];
                         memcpy(peer_v_count[i], recv_peer_v_count[i], LIMIT*sizeof(int));
                     }
-                    // if incoming rate from any proxy not received then set flag to false
+                    /* if incoming rate from any proxy not received then set flag to false */
                     if(temp_incoming_peers[i]==-1) {
-                        debug_printf("incomingRate from %d not received!\n", i);
+                        // debug_printf("incomingRate from %d not received!\n", i);
                         flag=false;
                     }
                 }
             }
-            // debug...
+
             debug_printf("after receive: timestamp-temp_inc_peers: ");
             for(int i=0; i<PEERS; i++)
                 debug_printf("%ld-%d  ", timestamp[i], temp_incoming_peers[i]);
             debug_printf("\n");
-            // if ncoming rate received from all proxies, then
-            // copy it to original peer_incomingRate and set temp_incoming_peers to 0
+            /* if ncoming rate received from all proxies, then
+               copy it to original peer_incomingRate and set temp_incoming_peers to 0 */
             if(flag) {
                 memcpy(incoming_peers, temp_incoming_peers, PEERS*sizeof(int));
                 memset(temp_incoming_peers, -1, PEERS*sizeof(int));
@@ -162,10 +164,10 @@ int readFromClient( struct clientDetails * cd ) {
         else{
             debug_printf( "bytesRead in else %d \n", bytesRead );
         }
-        // Exit once the communication is over.
+        /* Exit once the communication is over. */
     }
     debug_printf( "gonna shutdown read thread \n");
-    // 2- shutdown both send and receive functions
+    /* 2- shutdown both send and receive functions */
     return close( clientSocketFD );
 }
 
@@ -175,9 +177,9 @@ void * ThreadWorker( void * threadArgs) {
 }
 
 void* create_server_socket(void*) {
-    //
-    // Creates server socket for communication between Proxy1 and Proxy2, and CapacityEstimator
-    //
+    /*
+     Creates server socket for communication between Proxy1 and Proxy2, and CapacityEstimator
+    */
     int sockfd, newsockfd;
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
@@ -204,8 +206,7 @@ void* create_server_socket(void*) {
     }
 
     /* Now start listening for the clients, here process will
-     * go in sleep mode and will wait for the incoming connection
-     */
+       go in sleep mode and will wait for the incoming connection */
     listen(sockfd, 5);
     clilen = sizeof(cli_addr);
     int option = 1;
@@ -215,7 +216,7 @@ void* create_server_socket(void*) {
         close(sockfd);
         exit(2);
     }
-    //setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *) &option, sizeof(int));
+    // setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *) &option, sizeof(int));
     /* Accept actual connection from the client */
     pthread_t threadId;
     while (1) {
@@ -231,12 +232,12 @@ void* create_server_socket(void*) {
         cd->ip = (char *) malloc (20*sizeof(char));
         inet_ntop(AF_INET, &(cli_addr.sin_addr), cd->ip, INET_ADDRSTRLEN);
 
-        // add cd to a hash
+        /* add cd to a hash */
         ipToid[ cd ] = connectedClients;
         connectedClients++;
         debug_printf("peer connected: %s socket id: %d \n", cd->ip, ipToid[ cd ]);
 
-        // create read thread
+        /* create read thread */
         if(pthread_create(&threadId, NULL, ThreadWorker, (void *)cd) < 0)
         {
             debug_printf("read thread creation failed");
@@ -247,16 +248,16 @@ void* create_server_socket(void*) {
 }
 
 void writeToServer(char *ip_array_n){
-    // FUNCTION DESC:
-    // write incoming rate and visitor array to peer proxy 
-    // ( which is a server as far as 'this' proxy is concerned, therefore the function name )
-    // This function runs as a separate thread.for each peer
-    // i.e. There will be as many instance of this function as the number of peer TokenGen
+    /* FUNCTION DESC:
+       write incoming rate and visitor array to peer proxy 
+       ( which is a server as far as 'this' proxy is concerned, therefore the function name )
+       This function runs as a separate thread.for each peer
+       i.e. There will be as many instance of this function as the number of peer TokenGen */
 
     int sockfd, portnum, n;
     int scount = 0;
     struct sockaddr_in server_addr;
-    // sending_port is already filled by the parser
+    /* sending_port is already filled by the parser */
     portnum = atoi(sending_port);
     /* Create client socket */
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -274,39 +275,36 @@ void writeToServer(char *ip_array_n){
         exit(1);
     }
     server_addr.sin_port = htons(portnum);
-    // Connect once to the current ip_array_n and keep on sending
-    // incomingRate and waittime array at the below infinite while loop
+    /* Connect once to the current ip_array_n and keep on sending
+       incomingRate and waittime array at the below infinite while loop */
     if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr)) >= 0)
     {
-        // time frequnecy value is important = gossip interval
-        float sec= 0.0;       // time frequency in which to communicate
-        float sec_frac = gossip_interval;
-        debug_printf("gossip_interval: %f localId: %d\n", sec_frac, localId);
-        debug_printf( "write thread, connected: %s \n" , ip_array_n);
+        /* time frequnecy value is important = gossip interval
+           bug corrected: nanosleep for seconds also */
+        int isec = (int) gossip_interval;
+        float sec = isec;       /* time frequency in which to communicate */
+        float sec_frac = gossip_interval - isec;
+        debug_printf("gossip_interval: %f localId: %d\n", gossip_interval, localId);
+        debug_printf( "write thread created! ip: %s \n" , ip_array_n);
         struct timespec tim, rem;
         tim.tv_sec = sec;
         tim.tv_nsec = sec_frac*1000000000;
-        while( 1)
+        while(1)
         {
             while(!get_lock(&lock[tgen_id[ip_array_n]]))
             {
-                // get current time in milliseconds
+                /* get current time in milliseconds */
                 gettimeofday(&tval, 0);
                 long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
                 // debug_printf( "time: %ld writing to %s \n" , t_msec, ip_array_n);
-                // debug print the visitor_count being written
-                // for(int j =0 ; j < LIMIT ; j++ ){
-                //     if ( visitor_count[j]!= 0 )
-                //         debug_printf( "(%d) vc %d\n", j, visitor_count[j] );
-                // }
 
-                // send delimiter char 't' as indicator
+                /* send delimiter char 't' as indicator */
                 n = write(sockfd, &delimChar, sizeof(char));
                 debug_printf("delimiter sent, bytes: %d \n", n);
                 if (n < 0) { debug_printf("ERROR writing delimChar to peer socket\n"); }
-                // before sending arrays, update own value in that array (for localId)
 
-                // send entire incoming rate array
+                /* before sending arrays, update own value in that array (for localId) */
+                /* send entire incoming rate array */
                 temp_incoming_peers[localId] = lastIncoming;
                 n = write(sockfd, temp_incoming_peers , no_of_proxy*sizeof(int) );
                 debug_printf("incomingrate sent, bytes: %d  ", n);
@@ -315,8 +313,8 @@ void writeToServer(char *ip_array_n){
                 debug_printf("\n");
                 if (n < 0) { debug_printf("ERROR writing incoming_rate to peer socket\n"); }
 
-                // get ids of tokengens to whose information I have
-                // temp_inc_rate != -1 means I have information
+                /* get ids of tokengens to whose information I have
+                   temp_inc_rate != -1 means I have information */
                 scount = 0;
                 for(int i=0; i<no_of_proxy; i++) {
                     if(temp_incoming_peers[i]!=-1)
@@ -327,7 +325,7 @@ void writeToServer(char *ip_array_n){
                     debug_printf(" %d",s_id[i]);
                 debug_printf("\n");
 
-                // send timestamp array for ids in s_id
+                /* send timestamp array for ids in s_id */
                 timestamp[localId] = t_msec;
                 n = 0;
                 for(int i=0; i<scount; i++)
@@ -338,7 +336,7 @@ void writeToServer(char *ip_array_n){
                 debug_printf("\n");
                 if (n < 0) { debug_printf("ERROR writing timestamp to peer socket\n"); }
 
-                // sent visitor queue for ids in s_id
+                /* sent visitor queue for ids in s_id */
                 n = 0;
                 memcpy(peer_v_count[localId], visitor_count, LIMIT*sizeof(int));
                 for(int i=0; i<scount; i++)
@@ -346,9 +344,9 @@ void writeToServer(char *ip_array_n){
                         n += write(sockfd, &peer_v_count[s_id[scount]][j], sizeof(int) );
                 debug_printf("visitor array sent, bytes: %d \n", n);
                 if (n < 0) { debug_printf("ERROR writing visitor_array to peer socket\n"); }
-                debug_printf("data sent to %s\n", ip_array_n);
-                // connect as a client;
-                set_lock(&lock[tgen_id[ip_array_n]], true);     // set lock once again till next time selected
+                debug_printf("data sent to %s, time %d : %ld\n", ip_array_n, current_time, t_msec);
+                /* connect as a client */
+                set_lock(&lock[tgen_id[ip_array_n]], true);     /* set lock once again till next time selected */
                 nanosleep( &tim, &rem );
             }
         }
@@ -369,15 +367,17 @@ void* queue_sender( void * args) {/*{{{*/
 void* start_controller(void*)
 {
     sleep(1);
-    float sec = 0.0;
-    float sec_frac = gossip_interval;
+    /* bug corrected: nanosleep for seconds also */
+    int isec = (int) gossip_interval;
+    float sec = isec;
+    float sec_frac = gossip_interval - isec;
     struct timespec tim, rem;
     tim.tv_sec = sec;
     tim.tv_nsec = sec_frac*1000000000;
     debug_printf("branch factor: %d \n", branch_factor);
     while(1)
     {
-        // get current time in milliseconds
+        /* get current time in milliseconds */
         gettimeofday(&tval, 0);
         long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
         int rand_peers[branch_factor];
@@ -387,7 +387,6 @@ void* start_controller(void*)
         for(int i=0; i<branch_factor; i++) {
             int r=rand() % no_of_proxy;
             bool flag=false;
-            //printf("  +%d+  ", r);
             for(int j=0; j<=i; j++) {
                 if(r==rand_peers[j]) {
                     flag=true;
@@ -410,7 +409,7 @@ void* start_controller(void*)
     }
 }
 
-int main(void) {/*{{{*/
+int main(void) {
     incoming = 0;
     lastIncoming = 0;
     failing = 0;
@@ -423,26 +422,26 @@ int main(void) {/*{{{*/
     current_time = 0;
     int counter;
 
-    // Initialize
-    // visitor_count - number of incoming at current TokenGen
-    // peer_v_count - number of incoming at peers
+    /* Initialize
+       visitor_count - number of incoming at current TokenGen
+       peer_v_count - number of incoming at peers */
     for (counter = 0; counter < LIMIT; counter++)
     {
-        visitor_count[counter] = 0;  // Initialize visitor_count
+        visitor_count[counter] = 0;  /* Initialize visitor_count */
         int i ;
         for( i = 0 ; i < PEERS; i++ )
-            peer_v_count[i][counter] = 0; // replace with memset
+            peer_v_count[i][counter] = 0; /* replace with memset */
     }
 
-    // parse the proxy.conf file to get the values 
+    /* parse the proxy.conf file to get the values */
     parse_config_file();
 
-    // debug parsed data
+    /* debug parsed data */
     debug_printf("config file read success!\n");
-    debug_printf("%d\n", no_of_proxy);
-    debug_printf("%d\n", branch_factor);
-    debug_printf("%f\n", gossip_interval);
-    debug_printf("%d\n", localId);
+    debug_printf("no_of_proxy: %d\n", no_of_proxy);
+    debug_printf("branch_factor: %d\n", branch_factor);
+    debug_printf("gossip_interval: %f\n", gossip_interval);
+    debug_printf("localId: %d\n", localId);
     for(int i=0; i<no_of_proxy; i++)
         debug_printf("%d : %s : %d\n", i, ip_array[i], tgen_id[ip_array[i]]);
 
@@ -454,7 +453,7 @@ int main(void) {/*{{{*/
     pthread_t make_connection;
     pthread_create( &make_connection, NULL, create_server_socket, (void*) NULL);
     pthread_t send_queue[PEERS];
-    // first ip will be local machine ip, don't create thread for that (start from 1)
+    /* first ip will be local machine ip, don't create thread for that (start from 1) */
     for (counter = 1; counter < no_of_proxy ; counter++) {
         pthread_create( &send_queue[ counter ] , NULL , queue_sender, (void *) ip_array[ counter ] );
     }
@@ -469,29 +468,23 @@ int main(void) {/*{{{*/
         change_values(&incoming, 1);
         total_in++;
 
-        // Updated on 17.04
+        /* Updated on 17.04 */
         time_t currtime = time(NULL);
 
-        // we need to find share of capacity (share)
-        // hostIncomingRate is updated in timer.h
-        // sum_peer_incoming_rate - is updated below
-        int iter = 0;
-        int j;
+        /* we need to find share of capacity (share)
+           hostIncomingRate is updated in timer.h
+           sum_peer_incoming_rate - is updated below */
+        int iter = 0, j = 0;
+        memset(peer_incomingRate, 0, PEERS*sizeof(int));
+        /* sum the times .. actual avg found later outside the loop */
         for( j=0; j<PEERS; j++) {
-            peer_incomingRate[j] = 0; // TODO use memset
-        }
-        // sum the times .. actual avg found later outside the loop
-        for( j=0; j<PEERS; j++)
-        {
             peer_incomingRate[j] = incoming_peers[j];
             debug_printf( "%d inc_peers: %d peer_incRate: %f \n", j, incoming_peers[j] , peer_incomingRate[j]);
         }
         sum_peer_incoming_rate = 0;
-        for( j=0; j<PEERS; j++)
-        {
-            // don't include own incoming rate
-            if(j!=localId)
-            {
+        for( j=0; j<PEERS; j++) {
+            /* don't include own incoming rate */
+            if(j!=localId) {
                 sum_peer_incoming_rate += peer_incomingRate[j];
             }
         }
@@ -500,7 +493,7 @@ int main(void) {/*{{{*/
         int usedCapacity = 0;
         int peerUsedCapacity = 0;
         char * caseof = "case: H1 SP1";
-        // reserve a min value of capacity (0.1) for each servers
+        /* reserve a min value of capacity (0.1) for each servers */
         int percent = 10;
         if( hostIncomingRate == 0 && sum_peer_incoming_rate == 0 )
         {
@@ -520,16 +513,16 @@ int main(void) {/*{{{*/
         }
         debug_printf( "after! hostIncRate: %.2f, sumPeerIncRate: %.2f %s \n", hostIncomingRate, sum_peer_incoming_rate, caseof);
         share = capacity * hostIncomingRate/(hostIncomingRate + sum_peer_incoming_rate);
-        // share found
+        /* share found */
         if ( share == 0 ) {
-            // share can never be 0
+            /* share can never be 0 */
             share = 1;
         }
 
         int excess_used;
         for (iter = 0; iter < LIMIT; iter++) {
-            // find the current used capacity for THIS "iter" time instant 
-            // current_time is updated by 1 in time.h
+            /* find the current used capacity for THIS "iter" time instant 
+               current_time is updated by 1 in time.h */
             peerUsedCapacity = 0;
             usedCapacity = get_array(&visitor_count[(current_time + iter) % LIMIT]);
             for( j=0; j<PEERS; j++)
@@ -537,7 +530,7 @@ int main(void) {/*{{{*/
                 peerUsedCapacity += get_array( &peer_v_count[j][(current_time + iter) % LIMIT] );
             }
             debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter);
-            int total_usable_capacity = (share  - usedCapacity) ; // use a buffer here to compensate n/w delay!!!
+            int total_usable_capacity = (share  - usedCapacity) ; /* use a buffer here to compensate n/w delay!!! */
             if( peerUsedCapacity > 0 ){
                 excess_used = (capacity - share)-peerUsedCapacity;
                 total_usable_capacity += excess_used < 0 ? excess_used : 0;
@@ -551,9 +544,9 @@ int main(void) {/*{{{*/
             if ( total_usable_capacity > 0 )
             {
                 debug_printf( "time %d %d \n" , current_time , iter) ;
-                // found the time at which the request is to be
-                // sheduled , now update the visitor_count array
-                update_array(&visitor_count[(current_time + iter) % LIMIT], hardness[url]); // increment by hardness
+                /* found the time at which the request is to be
+                   sheduled , now update the visitor_count array */
+                update_array(&visitor_count[(current_time + iter) % LIMIT], hardness[url]); /* increment by hardness */
                 break;
             }
         }
@@ -567,7 +560,7 @@ int main(void) {/*{{{*/
 
             int time_to_wait = float_wait_time;
 
-            //changes made to enable logging of avg wait time (following line is uncommented)
+            /* changes made to enable logging of avg wait time (following line is uncommented) */
             change_float_values(&total_waiting_time, float_wait_time, 0);
             char* gt = get_token(time_to_wait);
             char* env_var = getenv("QUERY_STRING");
@@ -624,4 +617,4 @@ int main(void) {/*{{{*/
             free(gt);
         }
     }
-}/*}}}*/
+}

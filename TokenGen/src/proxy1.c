@@ -127,7 +127,7 @@ int readFromClient( struct clientDetails * cd ) {
             debug_printf("peer_v_count received, bytes: %d \n", bcount);
 
             debug_printf("before receive: timestamp-temp_inc_peers: ");
-            for(int i=0; i<PEERS; i++)
+            for(int i=0; i<no_of_proxy; i++)
                 debug_printf("%ld-%d  ", timestamp[i], temp_incoming_peers[i]);
             debug_printf("\n");
             /* update timestamp, inc_rate, peer_v_count if (received value is latest)
@@ -150,7 +150,7 @@ int readFromClient( struct clientDetails * cd ) {
             }
 
             debug_printf("after receive: timestamp-temp_inc_peers: ");
-            for(int i=0; i<PEERS; i++)
+            for(int i=0; i<no_of_proxy; i++)
                 debug_printf("%ld-%d  ", timestamp[i], temp_incoming_peers[i]);
             debug_printf("\n");
             /* if ncoming rate received from all proxies, then
@@ -344,7 +344,7 @@ void writeToServer(char *ip_array_n){
                         n += write(sockfd, &peer_v_count[s_id[scount]][j], sizeof(int) );
                 debug_printf("visitor array sent, bytes: %d \n", n);
                 if (n < 0) { debug_printf("ERROR writing visitor_array to peer socket\n"); }
-                debug_printf("data sent to %s, time %d : %ld\n", ip_array_n, current_time, t_msec);
+                debug_printf("data sent to %s, time: %d tstamp: %ld\n", ip_array_n, current_time, t_msec);
                 /* connect as a client */
                 set_lock(&lock[tgen_id[ip_array_n]], true);     /* set lock once again till next time selected */
                 nanosleep( &tim, &rem );
@@ -425,13 +425,9 @@ int main(void) {
     /* Initialize
        visitor_count - number of incoming at current TokenGen
        peer_v_count - number of incoming at peers */
-    for (counter = 0; counter < LIMIT; counter++)
-    {
-        visitor_count[counter] = 0;  /* Initialize visitor_count */
-        int i ;
-        for( i = 0 ; i < PEERS; i++ )
-            peer_v_count[i][counter] = 0; /* replace with memset */
-    }
+    memset(visitor_count, 0, LIMIT*sizeof(int));
+    for(int i = 0 ; i < PEERS; i++ )
+        memset(peer_v_count[i], 0, LIMIT*sizeof(int));
 
     /* parse the proxy.conf file to get the values */
     parse_config_file();
@@ -458,11 +454,9 @@ int main(void) {
         pthread_create( &send_queue[ counter ] , NULL , queue_sender, (void *) ip_array[ counter ] );
     }
 
-    for(int i=0; i<PEERS; i++) {
-        timestamp[i] = 0;
-        temp_incoming_peers[i] = -1;
-        lock[i] = true;
-    }
+    memset(timestamp, 0, PEERS*sizeof(long));
+    memset(temp_incoming_peers, -1, PEERS*sizeof(int));
+    memset(lock, true, PEERS*sizeof(bool));
 
     while (FCGI_Accept() >= 0) {
         change_values(&incoming, 1);
@@ -477,12 +471,12 @@ int main(void) {
         int iter = 0, j = 0;
         memset(peer_incomingRate, 0, PEERS*sizeof(int));
         /* sum the times .. actual avg found later outside the loop */
-        for( j=0; j<PEERS; j++) {
+        for( j=0; j<no_of_proxy; j++) {
             peer_incomingRate[j] = incoming_peers[j];
             debug_printf( "%d inc_peers: %d peer_incRate: %f \n", j, incoming_peers[j] , peer_incomingRate[j]);
         }
         sum_peer_incoming_rate = 0;
-        for( j=0; j<PEERS; j++) {
+        for( j=0; j<no_of_proxy; j++) {
             /* don't include own incoming rate */
             if(j!=localId) {
                 sum_peer_incoming_rate += peer_incomingRate[j];
@@ -525,11 +519,11 @@ int main(void) {
                current_time is updated by 1 in time.h */
             peerUsedCapacity = 0;
             usedCapacity = get_array(&visitor_count[(current_time + iter) % LIMIT]);
-            for( j=0; j<PEERS; j++)
+            for( j=0; j<no_of_proxy; j++)
             {
                 peerUsedCapacity += get_array( &peer_v_count[j][(current_time + iter) % LIMIT] );
             }
-            debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter);
+            /* debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter); */
             int total_usable_capacity = (share  - usedCapacity) ; /* use a buffer here to compensate n/w delay!!! */
             if( peerUsedCapacity > 0 ){
                 excess_used = (capacity - share)-peerUsedCapacity;
@@ -547,6 +541,7 @@ int main(void) {
                 /* found the time at which the request is to be
                    sheduled , now update the visitor_count array */
                 update_array(&visitor_count[(current_time + iter) % LIMIT], hardness[url]); /* increment by hardness */
+                debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter);
                 break;
             }
         }

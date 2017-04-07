@@ -441,6 +441,9 @@ int main(void) {
     for(int i=0; i<no_of_proxy; i++)
         debug_printf("%d : %s : %d\n", i, ip_array[i], tgen_id[ip_array[i]]);
 
+    /* bug: for br_fact>no_proxies it was not working */
+    if(branch_factor>=no_of_proxy)
+        branch_factor=no_of_proxy-1;
 
     pthread_t timer_log;
     pthread_create( &timer_log, NULL, start_logging, (void*) NULL);
@@ -523,7 +526,7 @@ int main(void) {
             {
                 peerUsedCapacity += get_array( &peer_v_count[j][(current_time + iter) % LIMIT] );
             }
-            /* debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter); */
+            // debug_printf( "usedCap-%d peerUsedCap-%d share-%d iter-%d \n", usedCapacity, peerUsedCapacity, share , iter);
             int total_usable_capacity = (share  - usedCapacity) ; /* use a buffer here to compensate n/w delay!!! */
             if( peerUsedCapacity > 0 ){
                 excess_used = (capacity - share)-peerUsedCapacity;

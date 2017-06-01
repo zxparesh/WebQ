@@ -134,11 +134,12 @@ int readFromClient( struct clientDetails * cd ) {
                received timestamp is greater than existing timestamp for given proxy */
             bool flag = true;    /* incomingRate received from all proxies */
             for(int i=0; i<no_of_proxy; i++) {
-                if(i!=localId) {                /* no need to updaet own info from others!! */
+                if(i!=localId) {                /* no need to update own info from others!! */
                     if(recv_timestamp[i] > timestamp[i]) {
                         // debug_printf("latest info from peer %d\n", i);
                         timestamp[i] = recv_timestamp[i];
                         temp_incoming_peers[i] = recv_incoming_peers[i];
+                        incoming_peers[i] = recv_incoming_peers[i];     /* update inc_rate as soon as received */
                         memcpy(peer_v_count[i], recv_peer_v_count[i], LIMIT*sizeof(int));
                     }
                     /* if incoming rate from any proxy not received then set flag to false */
@@ -154,11 +155,11 @@ int readFromClient( struct clientDetails * cd ) {
                 debug_printf("%ld-%d  ", timestamp[i], temp_incoming_peers[i]);
             debug_printf("\n");
             /* if ncoming rate received from all proxies, then
-               copy it to original peer_incomingRate and set temp_incoming_peers to 0 */
+               start collecting all over again and set temp_incoming_peers to 0 */
             if(flag) {
-                memcpy(incoming_peers, temp_incoming_peers, PEERS*sizeof(int));
+                // memcpy(incoming_peers, temp_incoming_peers, PEERS*sizeof(int));      /* for new algo: don't wait for all incoming rates to be received, update as soon as received from any peer (changes above) */
                 memset(temp_incoming_peers, -1, PEERS*sizeof(int));
-                debug_printf("all incomingRate received! copied to imcoming_peers!\n");
+                debug_printf("all incomingRate received! truncating temp_inc_rate!\n");
             }
         }
         else{

@@ -14,13 +14,13 @@ int no_of_proxy=PEERS;
 char * tokenCheckIp;
 int branch_factor;
 float gossip_interval;
-long timestamp[PEERS];          // timestamp associated with temp_incoming_peers and peer_v_count
+int timestamp[PEERS];          // timestamp associated with temp_incoming_peers and peer_v_count
 float peer_incomingRate[PEERS];         // global view of incoming rates
 int temp_incoming_peers[PEERS];         // store here till all rates received
 float sum_peer_incoming_rate;
+int tick_count=1;               // used as a timestamp, instead of system time
 double hardness[2];
 char delimChar='t';
-struct timeval tval;
 bool lock[PEERS];       // for blocking write thread to simulate branch factor
 int s_id[PEERS];        // for storing indexes of TGs to send information
 int r_id[PEERS];        // for storing indexes of TGs to receive information
@@ -80,13 +80,13 @@ int readFromClient( struct clientDetails * cd ) {
             /* if t is sent, timestamp follwed by incoming and peer_v_count will be sent ; read all that */
             debug_printf( "read from: %s id: %d\n", cd->ip, ipToid[cd] );
             /* store all 3 received arrays */
-            long recv_timestamp[PEERS];
+            int recv_timestamp[PEERS];
             int recv_incoming_peers[PEERS];
             int recv_peer_v_count[PEERS][LIMIT];
             int bcount = 0;
 
             /* reset receiving timestamp array */
-            memset(recv_timestamp, 0, PEERS*sizeof(long));
+            memset(recv_timestamp, 0, PEERS*sizeof(int));
 
             /* read entire incoming_rate array */
             bcount = read (clientSocketFD, recv_incoming_peers, no_of_proxy*sizeof(int));
@@ -111,11 +111,11 @@ int readFromClient( struct clientDetails * cd ) {
             /* receive timestamp array for ids in r_id */
             bcount = 0;
             for(int i=0; i<rcount; i++)
-                bcount += read( clientSocketFD, &recv_timestamp[r_id[i]], sizeof(long));
+                bcount += read( clientSocketFD, &recv_timestamp[r_id[i]], sizeof(int));
             /*** this debug statement required for calculating data bytes exchaged ***/
             debug_printf("timestamp received, bytes: %d  ", bcount+1);
             for(int i=0; i<PEERS; i++)
-                debug_printf("%ld ", recv_timestamp[i]);
+                debug_printf("%d ", recv_timestamp[i]);
             debug_printf("\n");
 
             /* receive waittime array for ids in r_id */
@@ -128,7 +128,7 @@ int readFromClient( struct clientDetails * cd ) {
 
             debug_printf("before receive: timestamp-temp_inc_peers: ");
             for(int i=0; i<no_of_proxy; i++)
-                debug_printf("%ld-%d  ", timestamp[i], temp_incoming_peers[i]);
+                debug_printf("%d-%d  ", timestamp[i], temp_incoming_peers[i]);
             debug_printf("\n");
             /* update timestamp, inc_rate, peer_v_count if (received value is latest)
                received timestamp is greater than existing timestamp for given proxy */
@@ -152,7 +152,7 @@ int readFromClient( struct clientDetails * cd ) {
 
             debug_printf("after receive: timestamp-temp_inc_peers: ");
             for(int i=0; i<no_of_proxy; i++)
-                debug_printf("%ld-%d  ", timestamp[i], temp_incoming_peers[i]);
+                debug_printf("%d-%d  ", timestamp[i], temp_incoming_peers[i]);
             debug_printf("\n");
             /* if ncoming rate received from all proxies, then
                start collecting all over again and set temp_incoming_peers to 0 */
@@ -294,11 +294,6 @@ void writeToServer(char *ip_array_n){
         {
             while(!get_lock(&lock[tgen_id[ip_array_n]]))
             {
-                /* get current time in milliseconds */
-                gettimeofday(&tval, 0);
-                long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
-                // debug_printf( "time: %ld writing to %s \n" , t_msec, ip_array_n);
-
                 /* send delimiter char 't' as indicator */
                 n = write(sockfd, &delimChar, sizeof(char));
                 debug_printf("delimiter sent, bytes: %d \n", n);
@@ -327,13 +322,14 @@ void writeToServer(char *ip_array_n){
                 debug_printf("\n");
 
                 /* send timestamp array for ids in s_id */
-                timestamp[localId] = t_msec;
+                /* update local time and update time for next iteration */
+                timestamp[localId] = tick_count++;
                 n = 0;
                 for(int i=0; i<scount; i++)
-                    n += write(sockfd, &timestamp[s_id[i]], sizeof(long) );
+                    n += write(sockfd, &timestamp[s_id[i]], sizeof(int) );
                 debug_printf("timestamp sent, bytes: %d  ", n);
                 for(int i=0; i<PEERS; i++)
-                    debug_printf("%ld ", timestamp[i]);
+                    debug_printf("%d ", timestamp[i]);
                 debug_printf("\n");
                 if (n < 0) { debug_printf("ERROR writing timestamp to peer socket\n"); }
 
@@ -345,7 +341,7 @@ void writeToServer(char *ip_array_n){
                         n += write(sockfd, &peer_v_count[s_id[scount]][j], sizeof(int) );
                 debug_printf("visitor array sent, bytes: %d \n", n);
                 if (n < 0) { debug_printf("ERROR writing visitor_array to peer socket\n"); }
-                debug_printf("data sent to %s, time: %d tstamp: %ld\n", ip_array_n, current_time, t_msec);
+                debug_printf("data sent to %s, time: %d tstamp: %ld\n", ip_array_n, current_time, tick_count);
                 /* connect as a client */
                 set_lock(&lock[tgen_id[ip_array_n]], true);     /* set lock once again till next time selected */
                 nanosleep( &tim, &rem );
@@ -378,9 +374,6 @@ void* start_controller(void*)
     debug_printf("branch factor: %d \n", branch_factor);
     while(1)
     {
-        /* get current time in milliseconds */
-        gettimeofday(&tval, 0);
-        long t_msec = (tval.tv_sec * 1000) + (tval.tv_usec / 1000);
         int rand_peers[branch_factor];
         lock_mutex();
         memset(lock, true, PEERS*sizeof(bool));
@@ -402,12 +395,13 @@ void* start_controller(void*)
                 i--;
         }
         release_mutex();
-        printf( "  time: %ld ~~~controller~~~ peers: ", t_msec);
-        for(int i=0; i<branch_factor; i++)
-            printf("%d ", rand_peers[i]);
-        printf("\n");
+        // debug_printf( "  time: %ld ~~~controller~~~ peers: ", tick_count);
+        // for(int i=0; i<branch_factor; i++)
+        //     debug_printf("%d ", rand_peers[i]);
+        // debug_printf("\n");
         nanosleep( &tim, &rem );
     }
+    debug_printf( "gonna shutdown controller thread \n");
 }
 
 int main(void) {
@@ -458,7 +452,7 @@ int main(void) {
         pthread_create( &send_queue[ counter ] , NULL , queue_sender, (void *) ip_array[ counter ] );
     }
 
-    memset(timestamp, 0, PEERS*sizeof(long));
+    memset(timestamp, 0, PEERS*sizeof(int));
     memset(temp_incoming_peers, -1, PEERS*sizeof(int));
     memset(lock, true, PEERS*sizeof(bool));
 

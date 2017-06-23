@@ -15,7 +15,8 @@ char * tokenCheckIp;
 int branch_factor;
 float gossip_interval;
 int timestamp[PEERS];           // timestamp associated with temp_incoming_peers and peer_v_count
-int temp_store_timestamp[PEERS];
+int temp_store_timestamp[PEERS];// store here till all data received
+int temp_incoming_peers[PEERS]; // store here till all rates received
 float peer_incomingRate[PEERS]; // global view of incoming rates
 float sum_peer_incoming_rate;
 int tick_count=1;               // used as a timestamp, instead of system time
@@ -81,11 +82,11 @@ int readFromClient( struct clientDetails * cd ) {
             debug_printf( "hardness %f %f \n", hardness[0], hardness[1] );
         }
         else {
-            debug_printf( "read from: %s id: %d\n", cd->ip, ipToid[cd] );
+            debug_printf( "read from: %s id: %d bytes: %d\n", cd->ip, ipToid[cd], bytesRead );
             int nums_read = bytesRead/4;
             for(int i=0; i<nums_read; i++)
             {
-                // printf("%d ", buffer[i]);
+                // debug_printf("%d ", buffer[i]);
                 if(buffer[i]<0) {
                     if(buffer[i]==start_del) {
                         i++;
@@ -109,12 +110,12 @@ int readFromClient( struct clientDetails * cd ) {
                         end_seq_num = buffer[i];
                         i++;
                         if(end_seq_num!=cur_seq_num) {
-                            printf("seq_num does not match!\n");
+                            debug_printf("seq_num does not match!\n");
                         }
                         else {
                             if(cur_read_type==time_del) {
                                 if(cur_read_index!=no_of_proxy) {
-                                    printf("timestamp receive error!\n");
+                                    debug_printf("timestamp receive error!\n");
                                     t_received = 0;
                                 }
                                 else {
@@ -134,72 +135,72 @@ int readFromClient( struct clientDetails * cd ) {
                             }
                             else if(cur_read_type==inc_del) {
                                 if(cur_read_index!=no_of_proxy) {
-                                    printf("inc_rate receive error!\n");
+                                    debug_printf("inc_rate receive error!\n");
                                 }
                                 else {
                                     if(t_received) {
-                                        // update inc_rate here
-                                        printf("inc_rate received!\n");
+                                        /* update inc_rate here */
+                                        debug_printf("inc_rate received!\n");
 
                                         /* for debugging purpose */
-                                        debug_printf("before receive: timestamp-temp_inc_peers: ");
+                                        debug_printf("before receive: timestamp-temp_store_timestamp-temp_incoming_peers: ");
                                         for(int i=0; i<no_of_proxy; i++)
-                                            debug_printf("%d-%d-%d  ", timestamp[i], temp_store_timestamp[i], incoming_peers[i]);
+                                            debug_printf("%d-%d-%d  ", timestamp[i], temp_store_timestamp[i], temp_incoming_peers[i]);
                                         debug_printf("\n");
 
                                         /* update timestamp, inc_rate, if (received value is latest) received
                                           timestamp is greater than existing timestamp for given proxy */
-                                        bool flag = true;    /* incomingRate received from all proxies */
                                         for(int i=0; i<no_of_proxy; i++) {
                                             if(i!=localId) {                /* no need to update own info from others!! */
-                                                if(recv_timestamp[i] >= timestamp[i]) {
+                                                if(recv_timestamp[i] >= temp_store_timestamp[i]) {
                                                     // debug_printf("latest info from peer %d\n", i);
-                                                    timestamp[i] = recv_timestamp[i];
-                                                    //temp_store_timestamp[i] = recv_timestamp[i];
-                                                    incoming_peers[i] = recv_inc_rate[i];     /* update inc_rate as soon as received */
+                                                    temp_store_timestamp[i] = recv_timestamp[i];
+                                                    temp_incoming_peers[i] = recv_inc_rate[i];
                                                 }
-                                                /* if incoming rate from any proxy not received then set flag to false */
-                                                /* if(temp_store_timestamp[i]==0) {
-                                                    // debug_printf("incomingRate from %d not received!\n", i);
-                                                    flag=false;
-                                                } */
                                             }
                                         }
                            
                                         /* for debugging purpose */
-                                        debug_printf("after receive: timestamp-temp_inc_peers: ");
+                                        debug_printf("after receive: timestamp-temp_store_timestamp-temp_incoming_peers: ");
                                         for(int i=0; i<no_of_proxy; i++)
                                             debug_printf("%d-%d-%d  ", timestamp[i], temp_store_timestamp[i], incoming_peers[i]);
                                         debug_printf("\n");
-
-                                        /* if timestamps received from all proxies, then
-                                           start collecting all over again and set temp_store_timestamp to 0 */
-                                        /* if(flag) {
-                                            memset(temp_store_timestamp, 0, PEERS*sizeof(int));
-                                            debug_printf("all timestamps! reset temp_store_timestamp!\n");
-                                        } */
                                     }
                                 }
                             }
                             else {
                                 if(cur_read_index!=1000) {
-                                    printf("watitime receive error!\n");
+                                    debug_printf("watitime receive error!\n");
                                     w_received = 0;
                                 }
                                 else {
                                     // compare with last id to receive waitime
                                     if(cur_r_id_index==r_count-1) {
                                         if(t_received==1 && w_received!=0) {
-                                            printf("waittime received!\n");
+                                            debug_printf("waittime received!\n");
+
+                                            bool flag = true;    /* timestamp received from all proxies */
 
                                             /* update visitor array if (received value is latest) received
                                               timestamp is greater than existing timestamp for given proxy */
                                             for(int i=0; i<no_of_proxy; i++) {
                                                 if(i!=localId) {                /* no need to update own info from others!! */
-                                                    if(recv_timestamp[i] >= timestamp[i]) {
-                                                        memcpy(peer_v_count[i], recv_waittime[i], LIMIT*sizeof(int));     /* update visitor_array as soon as received */
+                                                    if(recv_timestamp[i] >= temp_store_timestamp[i]) {
+                                                        memcpy(peer_v_count[i], recv_waittime[i], LIMIT*sizeof(int));
+                                                    }
+                                                    /* if timestamp from any proxy not received then set flag to false */
+                                                    if(temp_store_timestamp[i]==0) {
+                                                        // debug_printf("data from %d not received!\n", i);
+                                                        flag=false;
                                                     }
                                                 }
+                                            }
+                                            /* if timestamps received from all proxies, then copy all rates to incoming_peers
+                                               and start collecting all over again by reseting temp_store_timestamp to 0 */
+                                            if(flag) {
+                                                memcpy(incoming_peers, temp_incoming_peers, no_of_proxy*sizeof(int));
+                                                memset(temp_store_timestamp, 0, PEERS*sizeof(int));
+                                                debug_printf("all timestamps received! reset temp_store_timestamp!\n");
                                             }
                                         }
                                     }
@@ -216,7 +217,7 @@ int readFromClient( struct clientDetails * cd ) {
                                 recv_timestamp[cur_read_index]=buffer[i];
                             }
                             else {
-                                printf("timestamp: index overhead!\n");
+                                debug_printf("timestamp: index overhead!\n");
                                 t_received = 0;
                             }
                         }
@@ -225,7 +226,7 @@ int readFromClient( struct clientDetails * cd ) {
                                 recv_inc_rate[cur_read_index]=buffer[i];
                             }
                             else {
-                                printf("inc_rate: index overhead!\n");
+                                debug_printf("inc_rate: index overhead!\n");
                             }
                         }
                     }
@@ -234,7 +235,7 @@ int readFromClient( struct clientDetails * cd ) {
                             recv_waittime[r_id[cur_r_id_index]][cur_read_index]=buffer[i];
                         }
                         else {
-                            printf("waitime: index overhead!\n");
+                            debug_printf("waitime: index overhead!\n");
                             w_received = 0;
                         }
                     }
@@ -290,7 +291,7 @@ void* create_server_socket(void*) {
     int option = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char*) &option,
                 sizeof(option)) < 0) {
-        printf("setsockopt failed\n");
+        debug_printf("setsockopt failed\n");
         close(sockfd);
         exit(2);
     }
@@ -358,23 +359,23 @@ void writeToServer(char *ip_array_n){
 
     int seq_num = 0;
     int tmp_timestamp[6+no_of_proxy], tmp_inc_rate[6+no_of_proxy], tmp_waittime[LIMIT+6];
+
+    /* initialize tmp arrays */
+    tmp_timestamp[0] = start_del;
+    tmp_timestamp[2] = time_del;
+    tmp_timestamp[no_of_proxy+3] = time_del;
+    tmp_timestamp[no_of_proxy+5] = end_del;
+    tmp_inc_rate[0] = start_del;
+    tmp_inc_rate[2] = inc_del;
+    tmp_inc_rate[no_of_proxy+3] = inc_del;
+    tmp_inc_rate[no_of_proxy+5] = end_del;
+    tmp_waittime[0] = start_del;
+    tmp_waittime[2] = wait_del;
+    tmp_waittime[LIMIT+3] = wait_del;
+    tmp_waittime[LIMIT+5] = end_del;
     
     if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr)) >= 0)
     {
-        /* initialize tmp arrays */
-        tmp_timestamp[0] = start_del;
-        tmp_timestamp[2] = time_del;
-        tmp_timestamp[no_of_proxy+3] = time_del;
-        tmp_timestamp[no_of_proxy+5] = end_del;
-        tmp_inc_rate[0] = start_del;
-        tmp_inc_rate[2] = inc_del;
-        tmp_inc_rate[no_of_proxy+3] = inc_del;
-        tmp_inc_rate[no_of_proxy+5] = end_del;
-        tmp_waittime[0] = start_del;
-        tmp_waittime[2] = wait_del;
-        tmp_waittime[LIMIT+3] = wait_del;
-        tmp_waittime[LIMIT+5] = end_del;
-
         /* time frequnecy value is important = gossip interval
            bug corrected: nanosleep for seconds also */
         int isec = (int) gossip_interval;
@@ -390,8 +391,8 @@ void writeToServer(char *ip_array_n){
             while(!get_lock(&lock[tgen_id[ip_array_n]]))
             {
                 /* before sending arrays, update own value in that array (for localId) */
-                timestamp[localId] = tick_count++;
-                incoming_peers[localId] = lastIncoming;
+                temp_store_timestamp[localId] = tick_count++;
+                temp_incoming_peers[localId] = hostIncomingRate;
                 memcpy(peer_v_count[localId], visitor_count, LIMIT*sizeof(int));
 
                 tmp_timestamp[1] = seq_num;
@@ -401,14 +402,14 @@ void writeToServer(char *ip_array_n){
                 tmp_inc_rate[no_of_proxy+4] = seq_num;
                 seq_num++;
                 for(int i=0; i<no_of_proxy; i++) {
-                    tmp_timestamp[i+3] = timestamp[i];
-                    tmp_inc_rate[i+3] = incoming_peers[i];
+                    tmp_timestamp[i+3] = temp_store_timestamp[i];
+                    tmp_inc_rate[i+3] = temp_incoming_peers[i];
                 }
 
                 /* send entire tmp_timestamp array */
                 n = write(sockfd, &tmp_timestamp, (6+no_of_proxy)*sizeof(int));
                 if (n < 0) { debug_printf("ERROR writing timestamp to peer socket\n"); }
-                printf("timestamp sent, bytes: %d\n", n);
+                debug_printf("timestamp sent, bytes: %d\n", n);
 
                 for(int i=0; i<no_of_proxy+6; i++)
                     debug_printf("%d ", tmp_timestamp[i]);
@@ -417,7 +418,7 @@ void writeToServer(char *ip_array_n){
                 /* send entire incoming rate array */
                 n = write(sockfd, &tmp_inc_rate, (6+no_of_proxy)*sizeof(int));
                 if (n < 0) { debug_printf("ERROR writing incoming_rate to peer socket\n"); }
-                printf("inc_rate sent, bytes: %d\n", n);
+                debug_printf("inc_rate sent, bytes: %d\n", n);
 
                 for(int i=0; i<no_of_proxy+6; i++)
                     debug_printf("%d ", tmp_inc_rate[i]);
@@ -518,6 +519,8 @@ int main(void) {
     /* Initialize
        visitor_count - number of incoming at current TokenGen
        peer_v_count - number of incoming at peers */
+    memset(temp_store_timestamp, 0, PEERS*sizeof(int));
+    memset(temp_incoming_peers, 0, PEERS*sizeof(int));
     memset(visitor_count, 0, LIMIT*sizeof(int));
     for(int i = 0 ; i < PEERS; i++ )
         memset(peer_v_count[i], 0, LIMIT*sizeof(int));

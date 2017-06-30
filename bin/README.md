@@ -15,11 +15,9 @@ The scripts are listed in the order of importance
 2. `ips.sh` - This file serves as as a single point for modifying ips
    of the current deployment. The variables in this script must be
    updated to correct values for `redeploy.sh` to function.
-3. `startupTmux.sh` - a helper script to open up windows in tmux
-   monitoring all relevant log files in different machines . This
-   script is strictly for development ease and is not necessary for
-   running WebQ.
-4. `dev_setup.sh` - execute this file after the first time you clone the repo.
-5. `cscope.sh` - a simple script to generate the file list needed for cscope
-6. `makeKnownHost.sh` - Setup a password less login to target machine
+   Make sure if contains all ips of all TokeGens machines.
+3. `makeKnownHost.sh` - Setup a password less login to target machine
    and user. (same job as `ssh-copy-id`)
+4. `backup_plog.sh`, `copy_peers.sh`, `peer_list` and `run_peers.sh`
+   are for ease of development, not necessary for running WebQ.
+   Their usage method and description are inside script file itself.

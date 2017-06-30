@@ -23,8 +23,8 @@ int tick_count=1;               // used as a timestamp, instead of system time
 double hardness[2];
 bool lock[PEERS];       // for blocking write thread to simulate branch factor
 int r_id[PEERS];        // for storing indexes of TGs to receive information
-int start_del=-10, end_del=-20;
-int time_del=-1, inc_del=-2, wait_del=-3;
+int start_del=-10, end_del=-20;                 // start and end of each data stream
+int time_del=-1, inc_del=-2, wait_del=-3;       // indicates type of data stream
 
 struct clientDetails{
     int sockfd;
@@ -57,6 +57,7 @@ int readFromClient( struct clientDetails * cd ) {
     int t_received=0, w_received=1, r_count=0;
     int cur_read_type=0, cur_read_index=0, cur_r_id_index=-1, cur_seq_num=-1, end_seq_num=-1;
    
+    // store received values
     int recv_timestamp[PEERS];
     int recv_inc_rate[PEERS];
     int recv_waittime[PEERS][LIMIT];
@@ -67,7 +68,7 @@ int readFromClient( struct clientDetails * cd ) {
         /* the fist character indicates if the data is from CapacityEstimator or TokenGen
            c - capacity data from CapacityEstimator
            h - hardness data form CapacityEstimator
-           t - timestamp follwed by incoming rate and peer_v_count from peer TokenGen */
+           else - timestamp follwed by incoming rate and peer_v_count from peer TokenGen */
         /* check content of buffer == c or h or t */
         if( *(char*)buffer == 'c' ){
             debug_printf( "bytes: %d, data from capacity estimator in c %s \n", bytesRead, ((char*)buffer)+1 );
@@ -83,17 +84,21 @@ int readFromClient( struct clientDetails * cd ) {
         }
         else {
             debug_printf( "read from: %s id: %d bytes: %d\n", cd->ip, ipToid[cd], bytesRead );
+            /* for each number read, parse stream */
             int nums_read = bytesRead/4;
             for(int i=0; i<nums_read; i++)
             {
                 // debug_printf("%d ", buffer[i]);
+                /* if it's delimiter */
                 if(buffer[i]<0) {
+                    /* if it's start of stream, find type and store seq number */
                     if(buffer[i]==start_del) {
                         i++;
-                        cur_seq_num = buffer[i];
-                        i++;
+                        cur_seq_num = buffer[i++];
+                        /* next number if type of data */
                         cur_read_type = buffer[i];
                         cur_read_index = 0;
+                        /* if receiving timestamp, start collection all over */
                         if(cur_read_type==time_del) {
                             r_count = 0;
                             t_received = 0;
@@ -105,14 +110,15 @@ int readFromClient( struct clientDetails * cd ) {
                                 memset(recv_waittime[i], 0, LIMIT*sizeof(int));
                         }
                     }
+                    /* if end of stream, check for seq number match and check if received entire array */
                     else {
                         i++;
-                        end_seq_num = buffer[i];
-                        i++;
+                        end_seq_num = buffer[i++];
                         if(end_seq_num!=cur_seq_num) {
                             debug_printf("seq_num does not match!\n");
                         }
                         else {
+                            /* if timestamp received, get values of TG ids to receive */
                             if(cur_read_type==time_del) {
                                 if(cur_read_index!=no_of_proxy) {
                                     debug_printf("timestamp receive error!\n");
@@ -133,6 +139,7 @@ int readFromClient( struct clientDetails * cd ) {
                                     debug_printf("\n");
                                 }
                             }
+                            /* if incoming rate array received, update stored values using timestamp */
                             else if(cur_read_type==inc_del) {
                                 if(cur_read_index!=no_of_proxy) {
                                     debug_printf("inc_rate receive error!\n");
@@ -168,13 +175,14 @@ int readFromClient( struct clientDetails * cd ) {
                                     }
                                 }
                             }
+                            /* if waittime array received, update stored values using timestamp */
                             else {
                                 if(cur_read_index!=1000) {
                                     debug_printf("watitime receive error!\n");
                                     w_received = 0;
                                 }
                                 else {
-                                    // compare with last id to receive waitime
+                                    /* compare with last id to receive waitime */
                                     if(cur_r_id_index==r_count-1) {
                                         if(t_received==1 && w_received!=0) {
                                             debug_printf("waittime received!\n");
@@ -210,7 +218,9 @@ int readFromClient( struct clientDetails * cd ) {
                         }
                     }
                 }
+                /* if positive number, its data value */
                 else {
+                    /* check if received value fits in array */
                     if(cur_read_type==time_del || cur_read_type==inc_del) {
                         if(cur_read_type==time_del) {
                             if(cur_read_index<no_of_proxy) {
@@ -395,6 +405,7 @@ void writeToServer(char *ip_array_n){
                 temp_incoming_peers[localId] = hostIncomingRate;
                 memcpy(peer_v_count[localId], visitor_count, LIMIT*sizeof(int));
 
+                /* add seq nums and copy original arrays to tmp */
                 tmp_timestamp[1] = seq_num;
                 tmp_timestamp[no_of_proxy+4] = seq_num;
                 seq_num++;
@@ -425,7 +436,8 @@ void writeToServer(char *ip_array_n){
                 debug_printf("\n");
 
                 /* send waittime of those ids whose info I have
-                   timestamp != 0 means I have information */
+                   timestamp != 0 means I have information
+                   use tmp_timestamp to avoid value getting updated after send */
                 n = 0;
                 for(int i=0; i<no_of_proxy; i++) {
                     if(tmp_timestamp[i+3]!=0) {
